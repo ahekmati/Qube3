@@ -1,0 +1,27 @@
+{
+  "user_tickers": [
+    "TSLL", "TQQQ", "NUGT", "EEM", "SOXL", "IBIT", "ARKK", "QTUM", "SVXY",
+    "STX", "PLTR", "WDC", "NEM", "MU", "GEV", "ORCL", "WBD", "NRG", "GE", "APH",
+    "LRCX", "TPR", "HWM", "GLW", "CVS", "KLAC", "UBER", "IDXX", "DASH", "JBL",
+    "MPWR", "VST", "TEL", "WYNN",
+    "APP", "ZS", "FAST", "AVGO", "CEG", "MDB", "MELI", "ORLY", "TTWO", "NFLX",
+    "NVDA", "AMD", "PDD", "META", "CRWD", "AXON", "GOOGL", "GOOG",
+    "TDUP", "OPEN", "LEU", "IMRX", "AMPX", "CELC", "AEVA", "BE", "OPRX", "CMCL",
+    "AMLX", "FUBO", "PGEN", "MASS", "APPS", "MLYS", "SATS", "COMM", "KTOS",
+    "LCTX", "CDE", "LASR", "METC", "UUUU", "CPS"
+  ],
+  "max_stocks": 5,
+  "state_file": "state.json",
+  "trade_log": "trades.csv",
+  "position_alloc": 0.1,
+  "window_smma": 31,
+  "ib_host": "127.0.0.1",
+  "ib_port": 4001,
+  "ib_client_id": 1,
+  "max_risk_per_trade": 0.02,
+  "trading_hours": ["09:35", "15:55"],
+  "holidays": [],
+  "demo_mode": false,
+  "trade_timezone": "US/Eastern",
+  "_version": "4.0"
+}
