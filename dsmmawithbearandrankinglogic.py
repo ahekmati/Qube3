@@ -1,17 +1,16 @@
 import logging
-import os
 import json
-import threading
-import time
-from datetime import datetime, timedelta
 import pytz
 import pandas as pd
 import numpy as np
-from ib_insync import IB, Stock, util
+from ib_insync import IB, Stock, util, Order
 
 CONFIG_VERSION = "1.0"
 ATR_PERIOD = 10
 ATR_MULTIPLIER = 2.0
+TP_MULTIPLIER = 2.0
+SUPERTREND_PERIOD = 10
+SUPERTREND_MULTIPLIER = 2.0
 SMMA_FAST = 10
 SMMA_SLOW = 21
 EXCEPTION_TICKERS = {"SQQQ", "VXX", "TLT", "GLD", "SOXS", "SPXS", "FAZ", "SARK"}
@@ -32,7 +31,8 @@ def atr(df, window=14):
     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     return tr.rolling(window).mean()
 
-def supertrend(df, period=22, multiplier=2):
+def supertrend(df, period=10, multiplier=2.0):
+    df = df.copy()
     atr_ = atr(df, period)
     hl2 = (df['high'] + df['low']) / 2
     final_upperband = hl2 + (multiplier * atr_)
@@ -73,7 +73,7 @@ def fetch_daily_df(ib, symbol, days=120):
     contract = Stock(symbol, 'SMART', 'USD')
     bars = ib.reqHistoricalData(contract, '', f'{days} D', '1 day', 'TRADES', useRTH=True, formatDate=1)
     df = util.df(bars)
-    if len(df) == 0: 
+    if len(df) == 0:
         raise ValueError('No data for '+symbol)
     print(f"Fetched {len(df)} daily bars for {symbol}.")
     return df
@@ -88,25 +88,15 @@ def get_momentum_rvol_score(df, lookback=20):
     score = momentum * 0.6 + rvol * 0.4
     return score, rvol, momentum
 
-def get_top_momentum_tickers(ib, symbols, top_n=5, lookback=20):
-    results = []
-    for symbol in symbols:
-        try:
-            df = fetch_daily_df(ib, symbol, days=lookback+30)
-            score, rvol, momentum = get_momentum_rvol_score(df, lookback)
-            if score is not None:
-                results.append({'ticker': symbol, 'score': score, 'rvol': rvol, 'momentum': momentum})
-        except Exception as e:
-            print(f"Error processing {symbol} for ranking: {e}")
-    ranked = sorted(results, key=lambda x: x['score'], reverse=True)
-    print("\n--- Top Momentum Candidates Based on Ranking ---")
-    for i, row in enumerate(ranked[:top_n]):
-        print(f"{i+1}. {row['ticker']} | Score={row['score']:.3f} | RVOL={row['rvol']:.2f} | Momentum={row['momentum']:.3f}")
-    return [row['ticker'] for row in ranked[:top_n]]
-
 def get_trade_size(available_cap, price, max_alloc=0.10):
     raw = int((available_cap * max_alloc) // price)
     return max(raw, 1)
+
+def cancel_existing_stop(ib, symbol):
+    contract = Stock(symbol, 'SMART', 'USD')
+    for trade in ib.trades():
+        if trade.contract.symbol == symbol and trade.order.orderType == 'STP' and trade.order.status not in ('Filled', 'Cancelled'):
+            ib.cancelOrder(trade.order)
 
 def main():
     print("Starting trading script...")
@@ -127,13 +117,10 @@ def main():
     max_positions = config.get("max_stocks", 5)
     max_alloc = 0.15
     max_re = state.data["max_reentries"]
-    tz = pytz.timezone(config.get("trade_timezone", "US/Eastern"))
 
     print("Retrieving account balance...")
     account_bal = float([a.value for a in ib.accountSummary() if a.tag == 'NetLiquidation' and a.currency == 'USD'][0])
     print(f"Account balance: ${account_bal:.2f}")
-    open_pos = list(state.data['positions'].keys())
-    num_live = len(open_pos)
 
     print("Computing SPY filter (9 SMMA vs 18 SMMA)...")
     spy_df = fetch_daily_df(ib, "SPY")
@@ -153,7 +140,9 @@ def main():
             size = pos['shares']
             print(f"Closing position for {symbol}: {size} shares at market.")
             try:
-                order = ib.placeOrder(Stock(symbol, 'SMART', 'USD'), ib.marketOrder('SELL', size))
+                contract = Stock(symbol, 'SMART', 'USD')
+                order = ib.marketOrder('SELL', size)
+                ib.placeOrder(contract, order)
                 logging.info(f"CLOSE {symbol} {size} as SPY 9/18 SMMA filter activated")
                 del state.data['positions'][symbol]
                 print(f"Closed {symbol} position.")
@@ -161,121 +150,95 @@ def main():
                 logging.error(f"Error closing {symbol}: {e}")
                 print(f"Error closing {symbol}: {e}")
 
-    # --- Ranking logic: only allow new trades in top-ranked tickers ---
-    print(f"Ranking tickers for top {max_positions} entry candidates...")
-    eligible_symbols = [s for s in symbols if s not in state.data['positions']]
-    ranked_candidates = get_top_momentum_tickers(ib, eligible_symbols, top_n=max_positions, lookback=20)
-    print(f"\nEligible top-momentum entry symbols: {ranked_candidates}")
+    # SuperTrend trailing stop update for all open positions
+    for symbol, pos in state.data["positions"].items():
+        try:
+            df = fetch_daily_df(ib, symbol)
+            st, _ = supertrend(df, SUPERTREND_PERIOD, SUPERTREND_MULTIPLIER)
+            supertrend_stop = float(st.iloc[-1])
+            if supertrend_stop > pos.get("active_stop", -np.inf):
+                print(f"Raising stop for {symbol} from {pos['active_stop']:.2f} to {supertrend_stop:.2f}")
+                cancel_existing_stop(ib, symbol)
+                contract = Stock(symbol, 'SMART', 'USD')
+                stp_order = Order(action="SELL", orderType="STP", auxPrice=round(supertrend_stop, 2),
+                                  totalQuantity=pos['shares'], tif='GTC')
+                ib.placeOrder(contract, stp_order)
+                pos["active_stop"] = supertrend_stop
+                pos["stop_type"] = "supertrend"
+        except Exception as e:
+            print(f"Failed stop update for {symbol}: {e}")
 
+    qualified = []
     for symbol in symbols:
-        if symbol not in ranked_candidates and symbol not in state.data['positions']:
-            continue  # Only permit new trades in top-ranked tickers.
-        print(f"\nChecking ticker: {symbol}")
-        if len(state.data['positions']) >= max_positions:
-            print("Max positions reached.")
-            break
+        if symbol in state.data['positions']:
+            continue
         if not spy_long_allowed and symbol not in EXCEPTION_TICKERS:
-            print(f"Blocked new long entry for {symbol}: SPY 9 SMMA < 18 SMMA. Only exception tickers can go long.")
             continue
         try:
             df = fetch_daily_df(ib, symbol)
-            print(f"Calculating indicators for {symbol}...")
             df["smma_fast"] = smma(df['close'], SMMA_FAST)
             df["smma_slow"] = smma(df['close'], SMMA_SLOW)
-            df["atr"] = atr(df, ATR_PERIOD)
-            df["supertrend"], df["superdir"] = supertrend(df)
-
             curr, prev = -1, -2
-            inpos = symbol in state.data['positions']
             cross_bull = (
                 df["smma_fast"].iloc[prev] <= df["smma_slow"].iloc[prev] and
                 df["smma_fast"].iloc[curr] > df["smma_slow"].iloc[curr]
             )
             above_slow = df["smma_fast"].iloc[curr] > df["smma_slow"].iloc[curr]
-            price = float(df["close"].iloc[curr])
-            stop = df["smma_slow"].iloc[curr] - ATR_MULTIPLIER * df["atr"].iloc[curr]
-            reentries = state.data['reentries'].get(symbol, 0)
-            print(f"{symbol}: inpos={inpos}, price={price:.2f}, stop={stop:.2f}, reentries={reentries}")
-
             recross_above_slow = (
                 above_slow and
                 df["close"].iloc[prev] < df["smma_slow"].iloc[prev] and
                 df["close"].iloc[curr] > df["smma_slow"].iloc[curr]
             )
-
-            if not inpos and (cross_bull or recross_above_slow):
-                print(f"Trade entry signal detected for {symbol} (cross_bull={cross_bull}, recross_above_slow={recross_above_slow}).")
-                if reentries < max_re:
-                    size = get_trade_size(account_bal, price, max_alloc)
-                    print(f"Placing buy order for {symbol}: {size} shares at ${price:.2f}")
-                    order = ib.placeOrder(Stock(symbol, 'SMART', 'USD'), ib.marketOrder('BUY', size))
-                    print(f"BUY order placed for {symbol}, waiting for execution...")
-                    state.data['positions'][symbol] = {
-                        'entry_price': price,
-                        'shares': size,
-                        'init_stop': stop,
-                        'active_stop': stop,
-                        'stop_type': "init",
-                        'cross_date': str(df.index[curr]),
-                        'supertrend_last': float(df["supertrend"].iloc[curr]),
-                        'superdir_last': df["superdir"].iloc[curr]
-                    }
-                    state.data['reentries'][symbol] = reentries + 1
-                    logging.info(f"BUY {symbol} {size} @ {price:.2f}, stop {stop:.2f} (cross_bull={cross_bull}, recross_above_slow={recross_above_slow})")
-                    print(f"Entry position recorded for {symbol}.")
-
-            # POSITION MANAGEMENT (unchanged, original logic)
-            if inpos:
-                pos = state.data['positions'][symbol]
-                prev_superdir = pos['superdir_last']
-                curr_superdir = df["superdir"].iloc[curr]
-                curr_st = float(df["supertrend"].iloc[curr])
-                stop = pos['active_stop']
-                got_stopped = False
-
-                # ATR trailing stop for bear regime alternative tickers
-                if not spy_long_allowed and symbol in EXCEPTION_TICKERS:
-                    atr_value = df["atr"].iloc[curr]
-                    new_atr_stop = price - ATR_MULTIPLIER * atr_value
-                    if new_atr_stop > stop:
-                        print(f"ATR trailing stop updated for {symbol}: from {stop:.2f} to {new_atr_stop:.2f}")
-                        stop = new_atr_stop
-                        pos['active_stop'] = stop
-                        pos['stop_type'] = "atr"
-                        logging.info(f"TRAIL {symbol}: ATR trailing stop updated to {stop:.2f}")
-                else:
-                    # Supertrend trailing stop for others or non-bear regime
-                    if prev_superdir == "red" and curr_superdir == "green":
-                        print(f"Supertrend flip detected for {symbol}: stop moved from {stop:.2f} to {curr_st:.2f}")
-                        stop = curr_st
-                        pos['active_stop'] = stop
-                        pos['stop_type'] = "supertrend"
-                        logging.info(f"TRAIL {symbol}: Trailing stop updated to SuperTrend {stop:.2f}")
-
-                # Stop out check
-                if price < stop:
-                    print(f"Price dropped below stop for {symbol}! Selling {pos['shares']} shares at ${price:.2f}.")
-                    size = pos['shares']
-                    order = ib.placeOrder(Stock(symbol, 'SMART', 'USD'), ib.marketOrder('SELL', size))
-                    print(f"SELL order placed for {symbol}, waiting for execution...")
-                    logging.info(f"SELL {symbol} {size} @ {price:.2f} STOPPED OUT.")
-                    del state.data['positions'][symbol]
-                    got_stopped = True
-                    print(f"Stopped out of {symbol}.")
-
-                if got_stopped:
-                    if above_slow:
-                        print(f"{symbol} remains in bullish regime after stop. Ready for potential reentry.")
-                    else:
-                        state.data['reentries'][symbol] = 0
-                        print(f"{symbol} left bullish regime. Reentry counter reset.")
-                else:
-                    pos['supertrend_last'] = curr_st
-                    pos['superdir_last'] = curr_superdir
-
+            reentries = state.data['reentries'].get(symbol, 0)
+            if cross_bull or recross_above_slow:
+                score, rvol, momentum = get_momentum_rvol_score(df)
+                if score is not None:
+                    qualified.append({'symbol': symbol, 'score': score, 'rvol': rvol,
+                                      'momentum': momentum, 'price': float(df["close"].iloc[curr]),
+                                      'df': df, 'reentries': reentries})
         except Exception as e:
-            logging.error(f"{symbol}: {e}")
-            print(f"Error processing {symbol}: {e}")
+            print(f"Error scanning {symbol} for entry: {e}")
+
+    qualified_sorted = sorted(qualified, key=lambda x: x['score'], reverse=True)
+    top_qualified = qualified_sorted[:max_positions]
+    print("\nThe top 5 momentum ranking that also meet the criteria are as follows:")
+    for i, q in enumerate(top_qualified):
+        print(f"{i+1}. {q['symbol']} | Score={q['score']:.3f} | RVOL={q['rvol']:.2f} | Momentum={q['momentum']:.3f}")
+
+    for q in top_qualified:
+        if len(state.data['positions']) >= max_positions:
+            print("Max positions reached.")
+            break
+        if q['reentries'] < max_re:
+            st, _ = supertrend(q['df'], SUPERTREND_PERIOD, SUPERTREND_MULTIPLIER)
+            supertrend_stop = float(st.iloc[-1])
+            atr_val = atr(q['df'], ATR_PERIOD).iloc[-1]
+            take_profit_price = q['price'] + TP_MULTIPLIER * atr_val
+            size = get_trade_size(account_bal, q['price'], max_alloc)
+            print(f"Placing market bracket order (SuperTrend stop) for {q['symbol']}: {size} shares")
+            contract = Stock(q['symbol'], 'SMART', 'USD')
+            ib.qualifyContracts(contract)
+            parent_ord = Order(action="BUY", orderType="MKT", totalQuantity=size, tif='DAY', transmit=False)
+            ib.placeOrder(contract, parent_ord)
+            tp_ord = Order(action="SELL", orderType="LMT", totalQuantity=size, lmtPrice=round(take_profit_price, 2),
+                           parentId=parent_ord.orderId, tif='GTC', transmit=False)
+            stp_ord = Order(action="SELL", orderType="STP", totalQuantity=size, auxPrice=round(supertrend_stop, 2),
+                            parentId=parent_ord.orderId, tif='GTC', transmit=True)
+            ib.placeOrder(contract, tp_ord)
+            ib.placeOrder(contract, stp_ord)
+            print(f"Market bracket order placed for {q['symbol']}, waiting for execution...")
+            state.data['positions'][q['symbol']] = {
+                'entry_price': q['price'],
+                'shares': size,
+                'init_stop': supertrend_stop,
+                'active_stop': supertrend_stop,
+                'take_profit': take_profit_price,
+                'stop_type': "supertrend",
+                'cross_date': str(q['df'].index[-1])
+            }
+            state.data['reentries'][q['symbol']] = q['reentries'] + 1
+            logging.info(f"BUY {q['symbol']} {size} @ {q['price']:.2f}, TP {take_profit_price:.2f}, supertrend stop {supertrend_stop:.2f}")
+            print(f"Entry position recorded for {q['symbol']}.")
 
     state.save()
     print("State saved.")

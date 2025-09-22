@@ -1,6 +1,26 @@
 {
   "_version": "4.0",
-  "positions": {},
-  "reentries": {},
+  "positions": {
+    "MASS": {
+      "entry_price": 7.51,
+      "shares": 49,
+      "init_stop": 5.57276003680821,
+      "active_stop": 6.60936,
+      "stop_type": "supertrend",
+      "cross_date": "119"
+    },
+    "AMD": {
+      "entry_price": 161.47,
+      "shares": 2,
+      "init_stop": 148.54740404174595,
+      "active_stop": 162.14,
+      "stop_type": "supertrend",
+      "cross_date": "119"
+    }
+  },
+  "reentries": {
+    "MASS": 1,
+    "AMD": 1
+  },
   "max_reentries": 3
 }
