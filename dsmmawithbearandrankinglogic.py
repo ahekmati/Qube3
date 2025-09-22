@@ -243,6 +243,30 @@ def main():
     state.save()
     print("State saved.")
     logging.info("End of trading cycle.")
+
+    # NEW: Print table of open positions and current GTC stop-losses
+    positions = ib.positions()
+    trades = ib.trades()
+
+    # Map for quick lookup of stop orders by symbol
+    stop_orders = {}
+    for trade in trades:
+        order = trade.order
+        contract = trade.contract
+        if order.orderType == 'STP' and order.tif == 'GTC' and order.action == 'SELL':
+            stop_orders[contract.symbol] = order.auxPrice
+
+    print("\nCurrent Open Positions and Their Stop Loss Levels:")
+    print(f"{'Symbol':6} | {'Qty':>6} | {'AvgPx':>8} | {'StopLoss(GTC)':>13}")
+    print("-" * 45)
+    for pos in positions:
+        contract = pos.contract
+        symbol = contract.symbol
+        qty = pos.position
+        avg_cost = pos.avgCost
+        stop = stop_orders.get(symbol, "None")
+        print(f"{symbol:6} | {qty:6} | {avg_cost:8.2f} | {stop:>13}")
+
     print("Trading cycle complete. Disconnecting IB...")
     ib.disconnect()
     print("Disconnected from IB.")
