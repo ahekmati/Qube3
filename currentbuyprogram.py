@@ -150,21 +150,49 @@ def main():
                 logging.error(f"Error closing {symbol}: {e}")
                 print(f"Error closing {symbol}: {e}")
 
-    # SuperTrend trailing stop update for all open positions
+    # Trailing stop update for all open positions
     for symbol, pos in state.data["positions"].items():
         try:
             df = fetch_daily_df(ib, symbol)
-            st, _ = supertrend(df, SUPERTREND_PERIOD, SUPERTREND_MULTIPLIER)
-            supertrend_stop = float(st.iloc[-1])
-            if supertrend_stop > pos.get("active_stop", -np.inf):
-                print(f"Raising stop for {symbol} from {pos['active_stop']:.2f} to {supertrend_stop:.2f}")
-                cancel_existing_stop(ib, symbol)
-                contract = Stock(symbol, 'SMART', 'USD')
-                stp_order = Order(action="SELL", orderType="STP", auxPrice=round(supertrend_stop, 2),
-                                  totalQuantity=pos['shares'], tif='GTC')
-                ib.placeOrder(contract, stp_order)
-                pos["active_stop"] = supertrend_stop
-                pos["stop_type"] = "supertrend"
+            if symbol in EXCEPTION_TICKERS:
+                # ATR Trailing Stop for exception tickers
+                high_since_entry = pos.get("high_since_entry", pos["entry_price"])
+                atr_latest = atr(df, ATR_PERIOD).iloc[-1]
+                new_high = max(high_since_entry, df["close"].iloc[-1])
+                move = new_high - high_since_entry
+                if move >= ATR_MULTIPLIER * atr_latest:
+                    # Move stop up by 2 ATR
+                    # Stop is new_high - 2*ATR
+                    stop_price = new_high - ATR_MULTIPLIER * atr_latest
+                    if stop_price > pos.get("active_stop", -np.inf):
+                        print(f"ATR trailing stop raised for {symbol} from {pos.get('active_stop', 'None'):.2f} to {stop_price:.2f}")
+                        cancel_existing_stop(ib, symbol)
+                        contract = Stock(symbol, 'SMART', 'USD')
+                        stp_order = Order(action="SELL", orderType="STP", auxPrice=round(stop_price, 2),
+                                          totalQuantity=pos['shares'], tif='GTC')
+                        ib.placeOrder(contract, stp_order)
+                        pos["active_stop"] = stop_price
+                        pos["stop_type"] = "atr"
+                        pos["high_since_entry"] = new_high
+                else:
+                    # Update high water mark if price increases
+                    pos["high_since_entry"] = new_high
+            else:
+                # Only update SuperTrend stop if direction is green
+                st, direction = supertrend(df, SUPERTREND_PERIOD, SUPERTREND_MULTIPLIER)
+                if direction.iloc[-1] == "green":
+                    supertrend_stop = float(st.iloc[-1])
+                    if supertrend_stop > pos.get("active_stop", -np.inf):
+                        print(f"Raising SuperTrend stop for {symbol} from {pos.get('active_stop', 'None'):.2f} to {supertrend_stop:.2f}")
+                        cancel_existing_stop(ib, symbol)
+                        contract = Stock(symbol, 'SMART', 'USD')
+                        stp_order = Order(action="SELL", orderType="STP", auxPrice=round(supertrend_stop, 2),
+                                          totalQuantity=pos['shares'], tif='GTC')
+                        ib.placeOrder(contract, stp_order)
+                        pos["active_stop"] = supertrend_stop
+                        pos["stop_type"] = "supertrend"
+                else:
+                    print(f"SuperTrend is red for {symbol}; stop not updated.")
         except Exception as e:
             print(f"Failed stop update for {symbol}: {e}")
 
@@ -210,45 +238,68 @@ def main():
             print("Max positions reached.")
             break
         if q['reentries'] < max_re:
-            st, _ = supertrend(q['df'], SUPERTREND_PERIOD, SUPERTREND_MULTIPLIER)
-            supertrend_stop = float(st.iloc[-1])
-            atr_val = atr(q['df'], ATR_PERIOD).iloc[-1]
-            take_profit_price = q['price'] + TP_MULTIPLIER * atr_val
-            size = get_trade_size(account_bal, q['price'], max_alloc)
-            print(f"Placing market bracket order (SuperTrend stop) for {q['symbol']}: {size} shares")
-            contract = Stock(q['symbol'], 'SMART', 'USD')
-            ib.qualifyContracts(contract)
-            parent_ord = Order(action="BUY", orderType="MKT", totalQuantity=size, tif='DAY', transmit=False)
-            ib.placeOrder(contract, parent_ord)
-            tp_ord = Order(action="SELL", orderType="LMT", totalQuantity=size, lmtPrice=round(take_profit_price, 2),
-                           parentId=parent_ord.orderId, tif='GTC', transmit=False)
-            stp_ord = Order(action="SELL", orderType="STP", totalQuantity=size, auxPrice=round(supertrend_stop, 2),
-                            parentId=parent_ord.orderId, tif='GTC', transmit=True)
-            ib.placeOrder(contract, tp_ord)
-            ib.placeOrder(contract, stp_ord)
-            print(f"Market bracket order placed for {q['symbol']}, waiting for execution...")
-            state.data['positions'][q['symbol']] = {
-                'entry_price': q['price'],
-                'shares': size,
-                'init_stop': supertrend_stop,
-                'active_stop': supertrend_stop,
-                'take_profit': take_profit_price,
-                'stop_type': "supertrend",
-                'cross_date': str(q['df'].index[-1])
-            }
+            df = q['df']
+            if q['symbol'] in EXCEPTION_TICKERS:
+                # ATR-based stop for exception ticker
+                atr_val = atr(df, ATR_PERIOD).iloc[-1]
+                stop_price = q['price'] - ATR_MULTIPLIER * atr_val
+                size = get_trade_size(account_bal, q['price'], max_alloc)
+                contract = Stock(q['symbol'], 'SMART', 'USD')
+                ib.qualifyContracts(contract)
+                parent_ord = Order(action="BUY", orderType="MKT", totalQuantity=size, tif='DAY', transmit=False)
+                ib.placeOrder(contract, parent_ord)
+                tp_ord = Order(action="SELL", orderType="LMT", totalQuantity=size, lmtPrice=round(q['price'] + TP_MULTIPLIER * atr_val, 2),
+                               parentId=parent_ord.orderId, tif='GTC', transmit=False)
+                stp_ord = Order(action="SELL", orderType="STP", totalQuantity=size, auxPrice=round(stop_price, 2),
+                                parentId=parent_ord.orderId, tif='GTC', transmit=True)
+                ib.placeOrder(contract, tp_ord)
+                ib.placeOrder(contract, stp_ord)
+                print(f"Market bracket order (ATR stop) placed for {q['symbol']}, waiting for execution...")
+                state.data['positions'][q['symbol']] = {
+                    'entry_price': q['price'],
+                    'shares': size,
+                    'init_stop': stop_price,
+                    'active_stop': stop_price,
+                    'take_profit': q['price'] + TP_MULTIPLIER * atr_val,
+                    'stop_type': "atr",
+                    'cross_date': str(df.index[-1]),
+                    'high_since_entry': q['price']
+                }
+            else:
+                # SuperTrend-based stop for normal ticker (initial)
+                st, direction = supertrend(df, SUPERTREND_PERIOD, SUPERTREND_MULTIPLIER)
+                supertrend_stop = float(st.iloc[-1])
+                size = get_trade_size(account_bal, q['price'], max_alloc)
+                contract = Stock(q['symbol'], 'SMART', 'USD')
+                ib.qualifyContracts(contract)
+                parent_ord = Order(action="BUY", orderType="MKT", totalQuantity=size, tif='DAY', transmit=False)
+                ib.placeOrder(contract, parent_ord)
+                tp_ord = Order(action="SELL", orderType="LMT", totalQuantity=size, lmtPrice=round(q['price'] + TP_MULTIPLIER * atr(df, ATR_PERIOD).iloc[-1], 2),
+                               parentId=parent_ord.orderId, tif='GTC', transmit=False)
+                stp_ord = Order(action="SELL", orderType="STP", totalQuantity=size, auxPrice=round(supertrend_stop, 2),
+                                parentId=parent_ord.orderId, tif='GTC', transmit=True)
+                ib.placeOrder(contract, tp_ord)
+                ib.placeOrder(contract, stp_ord)
+                print(f"Market bracket order placed for {q['symbol']}, waiting for execution...")
+                state.data['positions'][q['symbol']] = {
+                    'entry_price': q['price'],
+                    'shares': size,
+                    'init_stop': supertrend_stop,
+                    'active_stop': supertrend_stop,
+                    'take_profit': q['price'] + TP_MULTIPLIER * atr(df, ATR_PERIOD).iloc[-1],
+                    'stop_type': "supertrend",
+                    'cross_date': str(df.index[-1])
+                }
             state.data['reentries'][q['symbol']] = q['reentries'] + 1
-            logging.info(f"BUY {q['symbol']} {size} @ {q['price']:.2f}, TP {take_profit_price:.2f}, supertrend stop {supertrend_stop:.2f}")
+            logging.info(f"BUY {q['symbol']} {size} @ {q['price']:.2f}, TP {state.data['positions'][q['symbol']]['take_profit']:.2f}, stop {state.data['positions'][q['symbol']]['active_stop']:.2f}")
             print(f"Entry position recorded for {q['symbol']}.")
 
     state.save()
     print("State saved.")
     logging.info("End of trading cycle.")
 
-    # NEW: Print table of open positions and current GTC stop-losses
     positions = ib.positions()
     trades = ib.trades()
-
-    # Map for quick lookup of stop orders by symbol
     stop_orders = {}
     for trade in trades:
         order = trade.order
@@ -273,3 +324,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+#End of Script - runs daily scanner, uses SMMA, SuperTrend, ATR trailing stops, momentum and RVOL ranking, manages positions and re-entries.
