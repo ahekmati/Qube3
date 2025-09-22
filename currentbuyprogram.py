@@ -6,6 +6,7 @@ import numpy as np
 from ib_insync import IB, Stock, util, Order
 
 
+
 CONFIG_VERSION = "1.0"
 ATR_PERIOD = 10
 ATR_MULTIPLIER = 2.0
@@ -15,6 +16,7 @@ SUPERTREND_MULTIPLIER = 2.0
 SMMA_FAST = 10
 SMMA_SLOW = 21
 EXCEPTION_TICKERS = {"SQQQ", "VXX", "TLT", "GLD", "SOXS", "SPXS", "FAZ", "SARK"}
+
 
 
 def smma(series, window):
@@ -27,12 +29,14 @@ def smma(series, window):
     return result
 
 
+
 def atr(df, window=14):
     high_low = df['high'] - df['low']
     high_close = np.abs(df['high'] - df['close'].shift(1))
     low_close = np.abs(df['low'] - df['close'].shift(1))
     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     return tr.rolling(window).mean()
+
 
 
 def supertrend(df, period=10, multiplier=2.0):
@@ -59,6 +63,7 @@ def supertrend(df, period=10, multiplier=2.0):
     return pd.Series(supertrend_vals, index=df.index), pd.Series(direction, index=df.index)
 
 
+
 class State:
     def __init__(self, fname):
         self.fname = fname
@@ -74,6 +79,7 @@ class State:
         with open(self.fname, 'w') as f: json.dump(self.data, f, indent=2)
 
 
+
 def fetch_daily_df(ib, symbol, days=120):
     print(f"Fetching daily data for {symbol}...")
     contract = Stock(symbol, 'SMART', 'USD')
@@ -83,6 +89,7 @@ def fetch_daily_df(ib, symbol, days=120):
         raise ValueError('No data for '+symbol)
     print(f"Fetched {len(df)} daily bars for {symbol}.")
     return df
+
 
 
 def get_momentum_rvol_score(df, lookback=20):
@@ -96,9 +103,11 @@ def get_momentum_rvol_score(df, lookback=20):
     return score, rvol, momentum
 
 
+
 def get_trade_size(available_cap, price, max_alloc=0.10):
     raw = int((available_cap * max_alloc) // price)
     return max(raw, 1)
+
 
 
 def cancel_existing_stop(ib, symbol):
@@ -106,6 +115,8 @@ def cancel_existing_stop(ib, symbol):
     for trade in ib.trades():
         if trade.contract.symbol == symbol and trade.order.orderType == 'STP' and trade.order.status not in ('Filled', 'Cancelled'):
             ib.cancelOrder(trade.order)
+
+
 
 
 def main():
@@ -124,15 +135,18 @@ def main():
     state.data["max_reentries"] = 3
 
 
+
     symbols = config['user_tickers']
     max_positions = config.get("max_stocks", 5)
     max_alloc = 0.15
     max_re = state.data["max_reentries"]
 
 
+
     print("Retrieving account balance...")
     account_bal = float([a.value for a in ib.accountSummary() if a.tag == 'NetLiquidation' and a.currency == 'USD'][0])
     print(f"Account balance: ${account_bal:.2f}")
+
 
 
     print("Computing SPY filter (9 SMMA vs 18 SMMA)...")
@@ -146,23 +160,33 @@ def main():
 
 
     if not spy_long_allowed:
-        print("SPY filter triggered! Closing all open long positions not in exceptions:")
+        print("SPY filter triggered! Protective stops activated.")
         for symbol in list(state.data['positions'].keys()):
             if symbol in EXCEPTION_TICKERS:
                 continue
             pos = state.data['positions'][symbol]
-            size = pos['shares']
-            print(f"Closing position for {symbol}: {size} shares at market.")
             try:
+                df = fetch_daily_df(ib, symbol)
+                recent_low = df['close'].iloc[-5:].min()  # lowest close in last 5 days
+                two_pct_below = df['close'].iloc[-1] * 0.98  # 2% below last close
+                protective_stop = min(recent_low, two_pct_below)
+                cancel_existing_stop(ib, symbol)
                 contract = Stock(symbol, 'SMART', 'USD')
-                order = ib.marketOrder('SELL', size)
-                ib.placeOrder(contract, order)
-                logging.info(f"CLOSE {symbol} {size} as SPY 9/18 SMMA filter activated")
-                del state.data['positions'][symbol]
-                print(f"Closed {symbol} position.")
+                stp_order = Order(
+                    action="SELL", 
+                    orderType="STP", 
+                    auxPrice=round(protective_stop, 2),
+                    totalQuantity=pos['shares'],
+                    tif='GTC'
+                )
+                ib.placeOrder(contract, stp_order)
+                pos["active_stop"] = protective_stop
+                pos["stop_type"] = "protective"
+                print(f"Protective stop set for {symbol} at {protective_stop:.2f}")
             except Exception as e:
-                logging.error(f"Error closing {symbol}: {e}")
-                print(f"Error closing {symbol}: {e}")
+                logging.error(f"Error setting protective stop for {symbol}: {e}")
+                print(f"Error setting protective stop for {symbol}: {e}")
+
 
 
     # Trailing stop update for all open positions
@@ -212,6 +236,7 @@ def main():
             print(f"Failed stop update for {symbol}: {e}")
 
 
+
     qualified = []
     for symbol in symbols:
         if symbol in state.data['positions']:
@@ -244,11 +269,13 @@ def main():
             print(f"Error scanning {symbol} for entry: {e}")
 
 
+
     qualified_sorted = sorted(qualified, key=lambda x: x['score'], reverse=True)
     top_qualified = qualified_sorted[:max_positions]
     print("\nThe top 5 momentum ranking that also meet the criteria are as follows:")
     for i, q in enumerate(top_qualified):
         print(f"{i+1}. {q['symbol']} | Score={q['score']:.3f} | RVOL={q['rvol']:.2f} | Momentum={q['momentum']:.3f}")
+
 
 
     for q in top_qualified:
@@ -313,9 +340,11 @@ def main():
             print(f"Entry position recorded for {q['symbol']}.")
 
 
+
     state.save()
     print("State saved.")
     logging.info("End of trading cycle.")
+
 
 
     positions = ib.positions()
@@ -327,10 +356,11 @@ def main():
         if order.orderType == 'STP' and order.tif == 'GTC' and order.action == 'SELL':
             stop_orders[contract.symbol] = order.auxPrice
 
-    # ---- MODIFIED BLOCK STARTS HERE ----
+
     print("\nCurrent Open Positions and Their Stop Loss Levels:")
     print(f"{'Symbol':6} | {'Qty':>6} | {'AvgPx':>8} | {'CurPx':>8} | {'StopLoss(GTC)':>13}")
     print("-" * 60)
+
 
     for pos in positions:
         contract = pos.contract
@@ -338,6 +368,7 @@ def main():
         qty = pos.position
         avg_cost = pos.avgCost
         stop = stop_orders.get(symbol, "None")
+
 
         # Fetch current market price
         market_data = ib.reqMktData(contract, '', False, False)
@@ -351,12 +382,14 @@ def main():
         else:
             cur_price = f"{cur_price:.2f}"
 
+
         print(f"{symbol:6} | {qty:6} | {avg_cost:8.2f} | {cur_price:8} | {stop:>13}")
-    # ---- MODIFIED BLOCK ENDS HERE ----
+
 
     print("Trading cycle complete. Disconnecting IB...")
     ib.disconnect()
     print("Disconnected from IB.")
+
 
 
 if __name__ == "__main__":
