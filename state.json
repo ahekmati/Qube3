@@ -5,7 +5,7 @@
       "entry_price": 7.51,
       "shares": 49,
       "init_stop": 5.57276003680821,
-      "active_stop": 6.60936,
+      "active_stop": 6.856054545454546,
       "stop_type": "supertrend",
       "cross_date": "119"
     },
@@ -16,11 +16,31 @@
       "active_stop": 162.14,
       "stop_type": "supertrend",
       "cross_date": "119"
+    },
+    "AXON": {
+      "entry_price": 770.0,
+      "shares": 1,
+      "init_stop": 768.005,
+      "active_stop": 780.3163636363636,
+      "take_profit": 802.8760000000001,
+      "stop_type": "supertrend",
+      "cross_date": "119"
+    },
+    "FAST": {
+      "entry_price": 47.61,
+      "shares": 7,
+      "init_stop": 48.641000000000005,
+      "active_stop": 48.641000000000005,
+      "take_profit": 49.412,
+      "stop_type": "supertrend",
+      "cross_date": "119"
     }
   },
   "reentries": {
     "MASS": 1,
-    "AMD": 1
+    "AMD": 1,
+    "AXON": 1,
+    "FAST": 1
   },
   "max_reentries": 3
 }
