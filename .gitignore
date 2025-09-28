@@ -1,0 +1,39 @@
+# Ignore Python cache and build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore log files and temp files
+*.log
+*.tmp
+
+# Ignore OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+
+# Ignore environment and config files
+.env
+*.sqlite3
+
+# Ignore build/virtual environment folders
+build/
+dist/
+venv/
+.env/
+
+# Ignore node/npm dependencies (if applicable)
+node_modules/
+
+# Ignore coverage reports
+.coverage
+htmlcov/
+
+
+node_modules/
+build/
+dist/
+*.log
+.venv/
+__pycache__/
