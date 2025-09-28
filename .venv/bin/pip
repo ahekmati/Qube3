@@ -1,4 +1,4 @@
-#!/home/guest/Qube3/.venv/bin/python3
+#!/home/ronin/Qube3/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

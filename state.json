@@ -5,7 +5,7 @@
       "entry_price": 7.51,
       "shares": 49,
       "init_stop": 5.57276003680821,
-      "active_stop": 6.856054545454546,
+      "active_stop": 7.1531,
       "stop_type": "supertrend",
       "cross_date": "119"
     },
