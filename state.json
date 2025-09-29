@@ -5,7 +5,7 @@
       "entry_price": 7.51,
       "shares": 49,
       "init_stop": 5.57276003680821,
-      "active_stop": 7.1531,
+      "active_stop": 7.293940909090909,
       "stop_type": "supertrend",
       "cross_date": "119"
     },
@@ -34,13 +34,24 @@
       "take_profit": 49.412,
       "stop_type": "supertrend",
       "cross_date": "119"
+    },
+    "IBIT": {
+      "entry_price": 64.43,
+      "shares": 5,
+      "init_stop": 61.907198450857166,
+      "active_stop": 61.907198450857166,
+      "take_profit": 67.632,
+      "stop_type": "smma_atr",
+      "cross_date": "119",
+      "high_since_entry": null
     }
   },
   "reentries": {
     "MASS": 1,
     "AMD": 1,
     "AXON": 1,
-    "FAST": 1
+    "FAST": 1,
+    "IBIT": 1
   },
   "max_reentries": 3
 }
