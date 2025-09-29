@@ -8,7 +8,7 @@
     "NVDA", "AMD", "PDD", "META", "CRWD", "AXON", "GOOGL", "GOOG",
     "TDUP", "OPEN", "LEU", "IMRX", "AMPX", "CELC", "AEVA", "BE", "OPRX", "CMCL",
     "AMLX", "FUBO", "PGEN", "MASS", "APPS", "MLYS", "SATS", "COMM", "KTOS",
-    "LCTX", "CDE", "LASR", "METC", "UUUU", "CPS", "SSO", "QQQ", "SPY"
+    "LCTX", "CDE", "LASR", "METC", "UUUU", "CPS", "SSO", "QQQ", "SPY", "APP"
   ],
   "max_stocks": 5,
   "state_file": "state.json",
