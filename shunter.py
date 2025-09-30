@@ -86,7 +86,7 @@ def main():
     ib = IB()
     ib.connect('127.0.0.1', 4001, clientId=1001)
 
-    watchlist = [   "AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL", "BRK.B", "GOOG", "AVGO",
+    watchlist = [   "AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL", "GOOG", "AVGO",
         "ORCL", "WDC", "NEM", "STX", "GEV", "GE", "CVS", "NRG", "HWM", "RCL",
         "PLTR", "JPM", "LLY", "V", "NFLX", "XOM", "MA", "COST", "WMT", "PG",
         "JNJ", "HD", "ABBV", "BAC", "IREN", "MSTR", "INTC", "QBTS", "BMNR", "IONQ",
