@@ -6,6 +6,7 @@ import numpy as np
 import time
 from ib_insync import IB, Stock, util, Order
 
+
 CONFIG_VERSION = "1.0"
 ATR_PERIOD = 10
 ATR_MULTIPLIER = 1.0
@@ -18,6 +19,7 @@ SMMA_EX_FAST = 10
 SMMA_EX_SLOW = 21
 EXCEPTION_TICKERS = {"SQQQ", "VXX", "TLT", "GLD", "SOXS", "SPXS", "FAZ", "SARK"}
 
+
 def smma(series, window):
     s = pd.Series(series)
     if len(s) < window: return s.copy()
@@ -27,12 +29,14 @@ def smma(series, window):
         result.iloc[i] = (result.iloc[i-1]*(window-1) + s.iloc[i])/window
     return result
 
+
 def atr(df, window=14):
     high_low = df['high'] - df['low']
     high_close = np.abs(df['high'] - df['close'].shift(1))
     low_close = np.abs(df['low'] - df['close'].shift(1))
     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     return tr.rolling(window).mean()
+
 
 def supertrend(df, period=10, multiplier=2.0):
     df = df.copy()
@@ -57,6 +61,7 @@ def supertrend(df, period=10, multiplier=2.0):
         supertrend_vals.append(st)
     return pd.Series(supertrend_vals, index=df.index), pd.Series(direction, index=df.index)
 
+
 class State:
     def __init__(self, fname):
         self.fname = fname
@@ -71,15 +76,22 @@ class State:
     def save(self):
         with open(self.fname, 'w') as f: json.dump(self.data, f, indent=2)
 
-def fetch_daily_df(ib, symbol, days=120):
+
+def fetch_daily_df(ib, symbol, days=120, retries=3):
     print(f"Fetching daily data for {symbol}...")
     contract = Stock(symbol, 'SMART', 'USD')
-    bars = ib.reqHistoricalData(contract, '', f'{days} D', '1 day', 'TRADES', useRTH=True, formatDate=1)
-    df = util.df(bars)
-    if len(df) == 0:
-        raise ValueError('No data for '+symbol)
-    print(f"Fetched {len(df)} daily bars for {symbol}.")
-    return df
+    for attempt in range(retries):
+        try:
+            bars = ib.reqHistoricalData(contract, '', f'{days} D', '1 day', 'TRADES', useRTH=True, formatDate=1)
+            df = util.df(bars)
+            if len(df) > 0:
+                print(f"Fetched {len(df)} daily bars for {symbol}.")
+                return df
+        except Exception as e:
+            print(f"Attempt {attempt+1} failed for {symbol}: {e}")
+            time.sleep(2)
+    raise ValueError('No data for '+symbol)
+
 
 def get_momentum_rvol_score(df, lookback=20):
     if len(df) < lookback + 2:
@@ -91,9 +103,11 @@ def get_momentum_rvol_score(df, lookback=20):
     score = momentum * 0.6 + rvol * 0.4
     return score, rvol, momentum
 
+
 def get_trade_size(available_cap, price, max_alloc=0.10):
     raw = int((available_cap * max_alloc) // price)
     return max(raw, 1)
+
 
 def cancel_existing_stop(ib, symbol):
     contract = Stock(symbol, 'SMART', 'USD')
@@ -103,8 +117,8 @@ def cancel_existing_stop(ib, symbol):
             trade.order.action == 'SELL' and
             trade.orderStatus.status not in ('Filled', 'Cancelled')):
             ib.cancelOrder(trade.order)
-    # Wait a moment for the API to process the cancel before replacing
-    time.sleep(1)
+    time.sleep(1)  # Give IBKR API a moment to process the cancel
+
 
 def main():
     print("Starting trading script...")
@@ -139,6 +153,16 @@ def main():
     spy_long_allowed = spy_9 > spy_18
     print(f"SPY 9 SMMA: {spy_9:.2f} | 18 SMMA: {spy_18:.2f} | Long positions allowed for most: {spy_long_allowed}")
 
+    # Fetch currently open positions from IBKR
+    ibkr_positions = ib.positions()
+    ibkr_open_symbols = set(p.contract.symbol for p in ibkr_positions)
+
+    # Remove any symbols in state.data["positions"] that are not in IBKR open positions
+    symbols_to_remove = [s for s in state.data["positions"] if s not in ibkr_open_symbols]
+    for symbol in symbols_to_remove:
+        print(f"[Cleanup] Removing {symbol} from local state: no longer open in IBKR.")
+        del state.data["positions"][symbol]
+
     # Protective SPY filter stops (run before trailing!)
     if not spy_long_allowed:
         print("SPY filter triggered! Protective stops activated.")
@@ -154,8 +178,8 @@ def main():
                 cancel_existing_stop(ib, symbol)
                 contract = Stock(symbol, 'SMART', 'USD')
                 stp_order = Order(
-                    action="SELL", 
-                    orderType="STP", 
+                    action="SELL",
+                    orderType="STP",
                     auxPrice=round(protective_stop, 2),
                     totalQuantity=pos['shares'],
                     tif='GTC'
@@ -168,12 +192,14 @@ def main():
                 logging.error(f"Error setting protective stop for {symbol}: {e}")
                 print(f"Error setting protective stop for {symbol}: {e}")
 
-    # Trailing stop update for all open positions
+    # Trailing stop update for all true open positions only
     for symbol, pos in state.data["positions"].items():
+        if symbol not in ibkr_open_symbols:
+            print(f"[Info] Skipping stop logic for {symbol}: no open position in IBKR.")
+            continue
         try:
             df = fetch_daily_df(ib, symbol)
             if symbol in EXCEPTION_TICKERS:
-                # ATR Trailing Stop for exception tickers
                 high_since_entry = pos.get("high_since_entry", pos["entry_price"])
                 atr_latest = atr(df, ATR_PERIOD).iloc[-1]
                 new_high = max(high_since_entry, df["close"].iloc[-1])
@@ -193,7 +219,6 @@ def main():
                 else:
                     pos["high_since_entry"] = new_high
             else:
-                # Only trail with SuperTrend if not in exception list
                 st, direction = supertrend(df, SUPERTREND_TRAIL_PERIOD, SUPERTREND_TRAIL_MULTIPLIER)
                 curr_close = df['close'].iloc[-1]
                 supertrend_val = float(st.iloc[-1])
@@ -214,6 +239,8 @@ def main():
                     print(f"SuperTrend trailing skip for {symbol}: condition not met (green:{is_green}, value:{supertrend_val:.2f}, close:{curr_close:.2f})")
         except Exception as e:
             print(f"Failed stop update for {symbol}: {e}")
+
+    # ... rest of code unchanged (entries, end-of-cycle reporting/reporting positions) ...
 
     qualified = []
     for symbol in symbols:
@@ -247,9 +274,9 @@ def main():
             if cross_bull or recross_above_slow:
                 score, rvol, momentum = get_momentum_rvol_score(df)
                 if score is not None:
-                    qualified.append({'symbol': symbol, 'score': score, 'rvol': rvol,
-                                      'momentum': momentum, 'price': float(df["close"].iloc[curr]),
-                                      'df': df, 'reentries': reentries,
+                    qualified.append({'symbol': symbol, 'score': score, 'rvol': rvol, 
+                                      'momentum': momentum, 'price': float(df["close"].iloc[curr]), 
+                                      'df': df, 'reentries': reentries, 
                                       'slow_smma_window': slow_smma_window})
         except Exception as e:
             print(f"Error scanning {symbol} for entry: {e}")
@@ -338,6 +365,34 @@ def main():
     print("Trading cycle complete. Disconnecting IB...")
     ib.disconnect()
     print("Disconnected from IB.")
+
+
+"""
+===============================================================================
+DETAILED SCRIPT EXPLANATION
+===============================================================================
+
+
+- Loads and saves persistent state (positions, reentries, config) from JSON files.
+- Connects to Interactive Brokers (IBKR) via ib_insync.
+- Fetches NetLiquidation/account balance.
+- Applies an overall SPY filter: if SMMA(9) < SMMA(18), activates protective stops on all non-exception open positions.
+- Before **any** stop or trailing update, confirms each symbol is both:
+    - in state['positions'] and
+    - is truly open per ib.positions() from IBKR.
+  Any stale local positions not truly open in IBKR are pruned/removed at every cycle.
+- For each still-open position, applies ATR or SuperTrend trailing stop as appropriate, for exceptions or normal tickers, but only if the position is live (prevents "stop raised" messages for non-existent positions).
+- Scans all user tickers for new bullish cross signals or momentum-based entries; considers both bull cross and "reentry above slow SMMA".
+- Places market bracket orders with take-profit and stop on any legitimate buy; records new positions and increments reentry count.
+- At the end, prints a table of all current live IBKR positions with their stop, size, average cost, and last price.
+- Disconnects and exits after saving all state.
+
+
+- Diagnostic/skip actions are now fully robust; no trailing or stop messages or logic are triggered for tickers where no live IBKR position exists.
+
+
+===============================================================================
+"""
 
 if __name__ == "__main__":
     main()
