@@ -5,9 +5,9 @@
       "entry_price": 64.43,
       "shares": 5,
       "init_stop": 61.907198450857166,
-      "active_stop": 61.907198450857166,
+      "active_stop": 65.05,
       "take_profit": 67.632,
-      "stop_type": "smma_atr",
+      "stop_type": "supertrend",
       "cross_date": "119",
       "high_since_entry": null
     }

@@ -1,53 +1,3 @@
-#############################################################
-# Automated Trading Script for IBKR with SMMA/SuperTrend Logic
-#############################################################
-#
-# This script connects to the Interactive Brokers Gateway via Python,
-# and runs a systematic trading strategy using a list of user-defined tickers.
-#
-# Major features and operational flow:
-#
-# 1. DATA ACQUISITION:
-#    - Fetches historical data for all user tickers:
-#         - Daily bars (1-day) covering 120 days
-#         - 4-hour bars (4h) covering the last 60 days
-#    - Calculates technical indicators:
-#         - SMMA (Smoothed Moving Average) on both daily and 4-hour timeframes
-#         - ATR (Average True Range) for dynamic stop-loss placement
-#         - SuperTrend for dynamic trailing stops
-#    - For specific tickers (exceptions), uses ATR instead of SuperTrend logic.
-#
-# 2. ENTRY SIGNALS:
-#    - For each ticker, checks for a bullish SMMA crossover that occurred on any of the previous 10 daily and 10 4-hour bars.
-#    - Alerts and considers entry if the crossover is detected up to 10 bars back (and fast SMMA is still above slow).
-#    - Ranks qualified tickers by momentum and relative volume to select top candidates.
-#    - Places bracket orders (market entry with GTC stop and take-profit), asking for manual confirmation before execution.
-#
-# 3. TRAILING STOP MANAGEMENT:
-#    - For each open position (with an active bracket order):
-#         - Recalculates trailing stop based on the latest indicator (SuperTrend or ATR) at every run.
-#         - Cancels old stop orders and places new stop-loss orders (GTC) as needed for improved protection.
-#         - Requires user confirmation for all critical order submissions and updates.
-#
-# 4. POSITION/STATE MANAGEMENT:
-#    - Tracks positions and reentries in a local JSON file for continuity between runs.
-#    - Cleans up local position state to match actual IBKR portfolio.
-#
-# 5. PROTECTION:
-#    - Filters out long entries if the market (SPY) is underperforming, but always manages stops.
-#    - Uses exceptions list for ETFs that require alternate stop logic.
-#
-# 6. REPORTING:
-#    - Prints a ranked list of new trade candidates each cycle.
-#    - Summarizes all open positions and associated stop-loss levels at the end of each run.
-#
-# 7. USER CONFIRMATION:
-#    - All entry and stop-loss order actions require manual (keyboard) confirmation before submission.
-#
-# This script is designed to be run periodically (manually or automated).
-# Each run updates trailing stops, checks for new entry signals, and keeps positions protected based on systematic rules.
-#############################################################
-
 import logging
 import json
 import pytz
@@ -137,46 +87,19 @@ class State:
         with open(self.fname, 'w') as f: json.dump(self.data, f, indent=2)
 
 def fetch_daily_df(ib, symbol, days=120, retries=3):
+    print(f"Fetching daily data for {symbol}...")
     contract = Stock(symbol, 'SMART', 'USD')
-    duration = f"{days} D"
     for attempt in range(retries):
         try:
-            bars = ib.reqHistoricalData(contract, '', duration, '1 day', 'TRADES', useRTH=True, formatDate=1)
+            bars = ib.reqHistoricalData(contract, '', f'{days} D', '1 day', 'TRADES', useRTH=True, formatDate=1)
             df = util.df(bars)
             if len(df) > 0:
                 print(f"Fetched {len(df)} daily bars for {symbol}.")
                 return df
         except Exception as e:
-            print(f"Attempt {attempt+1} failed for {symbol} (daily): {e}")
+            print(f"Attempt {attempt+1} failed for {symbol}: {e}")
             time.sleep(2)
-    raise ValueError('No daily data for '+symbol)
-
-def fetch_4h_df(ib, symbol, days=60, retries=3):
-    contract = Stock(symbol, 'SMART', 'USD')
-    duration = f"{days} D"
-    for attempt in range(retries):
-        try:
-            bars_ = ib.reqHistoricalData(contract, '', duration, '4 hours', 'TRADES', useRTH=True, formatDate=1)
-            df = util.df(bars_)
-            if df is not None and len(df) > 0:
-                print(f"Fetched {len(df)} 4-hour bars for {symbol}.")
-                return df
-        except Exception as e:
-            print(f"Attempt {attempt+1} failed for {symbol} (4h): {e}")
-            time.sleep(2)
-    raise ValueError('No 4h data for '+symbol)
-
-def find_smma_crossover(fast, slow, lookback=10):
-    """
-    Returns bars_ago (1 = most recent bar, 2 = previous, ...) where a bullish SMMA crossover
-    occurred within 'lookback' bars ago and fast is still above slow today. None if not found.
-    """
-    for i in range(-lookback, 0):
-        if (fast.iloc[i-1] <= slow.iloc[i-1]) and (fast.iloc[i] > slow.iloc[i]):
-            # Confirm fast is still above slow at latest bar
-            if fast.iloc[-1] > slow.iloc[-1]:
-                return abs(i)
-    return None
+    raise ValueError('No data for '+symbol)
 
 def get_momentum_rvol_score(df, lookback=20):
     if len(df) < lookback + 2:
@@ -231,7 +154,7 @@ def main():
     print(f"Account balance: ${account_bal:.2f}")
 
     print("Computing SPY filter (9 SMMA vs 18 SMMA)...")
-    spy_df = fetch_daily_df(ib, "SPY", days=120)
+    spy_df = fetch_daily_df(ib, "SPY")
     spy_df["smma9"] = smma(spy_df['close'], 9)
     spy_df["smma18"] = smma(spy_df['close'], 18)
     spy_9 = spy_df["smma9"].iloc[-1]
@@ -253,7 +176,7 @@ def main():
                 continue
             pos = state.data['positions'][symbol]
             try:
-                df = fetch_daily_df(ib, symbol, days=120)
+                df = fetch_daily_df(ib, symbol)
                 recent_low = df['close'].iloc[-5:].min()
                 two_pct_below = df['close'].iloc[-1] * 0.98
                 protective_stop = min(recent_low, two_pct_below)
@@ -282,7 +205,7 @@ def main():
             print(f"[Info] Skipping stop logic for {symbol}: no open position in IBKR.")
             continue
         try:
-            df = fetch_daily_df(ib, symbol, days=120)
+            df = fetch_daily_df(ib, symbol)
             if symbol in EXCEPTION_TICKERS:
                 high_since_entry = pos.get("high_since_entry", pos["entry_price"])
                 atr_latest = atr(df, ATR_PERIOD).iloc[-1]
@@ -334,8 +257,7 @@ def main():
         except Exception as e:
             print(f"Failed stop update for {symbol}: {e}")
 
-    # ---- ENTRY LOGIC WITH CROSSOVERS UP TO 10 BARS AGO ----
-
+    # -- ENTRY LOGIC --
     qualified = []
     for symbol in symbols:
         if symbol in state.data['positions']:
@@ -343,35 +265,35 @@ def main():
         if not spy_long_allowed and symbol not in EXCEPTION_TICKERS:
             continue
         try:
-            # DAILY LOGIC
-            df_daily = fetch_daily_df(ib, symbol, days=120)
+            df = fetch_daily_df(ib, symbol)
             if symbol in EXCEPTION_TICKERS:
-                df_daily["smma_fast"] = smma(df_daily['close'], SMMA_EX_FAST)
-                df_daily["smma_slow"] = smma(df_daily['close'], SMMA_EX_SLOW)
+                df["smma_fast"] = smma(df['close'], SMMA_EX_FAST)
+                df["smma_slow"] = smma(df['close'], SMMA_EX_SLOW)
                 slow_smma_window = SMMA_EX_SLOW
             else:
-                df_daily["smma_fast"] = smma(df_daily['close'], SMMA_NORMAL_FAST)
-                df_daily["smma_slow"] = smma(df_daily['close'], SMMA_NORMAL_SLOW)
+                df["smma_fast"] = smma(df['close'], SMMA_NORMAL_FAST)
+                df["smma_slow"] = smma(df['close'], SMMA_NORMAL_SLOW)
                 slow_smma_window = SMMA_NORMAL_SLOW
 
-            daily_cross_bars_ago = find_smma_crossover(df_daily["smma_fast"], df_daily["smma_slow"], lookback=10)
-
-            # 4-HOUR LOGIC
-            df_4h = fetch_4h_df(ib, symbol, days=60)
-            df_4h["smma_26"] = smma(df_4h["close"], 26)
-            df_4h["smma_150"] = smma(df_4h["close"], 150)
-            fourh_cross_bars_ago = find_smma_crossover(df_4h["smma_26"], df_4h["smma_150"], lookback=10)
-
+            curr, prev = -1, -2
+            cross_bull = (
+                df["smma_fast"].iloc[prev] <= df["smma_slow"].iloc[prev] and
+                df["smma_fast"].iloc[curr] > df["smma_slow"].iloc[curr]
+            )
+            above_slow = df["smma_fast"].iloc[curr] > df["smma_slow"].iloc[curr]
+            recross_above_slow = (
+                above_slow and
+                df["close"].iloc[prev] < df["smma_slow"].iloc[prev] and
+                df["close"].iloc[curr] > df["smma_slow"].iloc[curr]
+            )
             reentries = state.data['reentries'].get(symbol, 0)
-            if daily_cross_bars_ago and fourh_cross_bars_ago:
-                score, rvol, momentum = get_momentum_rvol_score(df_daily)
+            if cross_bull or recross_above_slow:
+                score, rvol, momentum = get_momentum_rvol_score(df)
                 if score is not None:
-                    print(f"ALERT: {symbol} SMMA crossover: Daily {daily_cross_bars_ago} bars ago, 4-hour {fourh_cross_bars_ago} bars ago (fast>slow)")
-                    qualified.append({
-                        'symbol': symbol, 'score': score, 'rvol': rvol,
-                        'momentum': momentum, 'price': float(df_daily["close"].iloc[-1]),
-                        'df': df_daily, 'reentries': reentries, 'slow_smma_window': slow_smma_window
-                    })
+                    qualified.append({'symbol': symbol, 'score': score, 'rvol': rvol, 
+                                      'momentum': momentum, 'price': float(df["close"].iloc[curr]), 
+                                      'df': df, 'reentries': reentries, 
+                                      'slow_smma_window': slow_smma_window})
         except Exception as e:
             print(f"Error scanning {symbol} for entry: {e}")
 
