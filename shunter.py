@@ -136,12 +136,21 @@ def main():
 if __name__ == "__main__":
     main()
 
-'''
-# Script Explanation
-
-This version applies SMMA (fast/slow), price, volume, and dollar volume breakouts twice for each stock:
-- One set where True Strength Index (TSI) is also required for confirmation
-- One set where TSI is not required
-
-It prints both sets of results so you can compare which stocks meet both or just the classic SMMA breakout.
-'''
+# =============================================================================
+# Script Summary:
+#
+# This script scans a large watchlist of stock tickers for bullish technical signals,
+# using price and volume data from Interactive Brokers (IBKR).
+# For each symbol, it:
+#   - Fetches up to 15 days of daily market data.
+#   - Calculates fast and slow SMMA (Smoothed Moving Average) signals on closing prices.
+#   - Computes TSI (True Strength Index) and relative volume (rVol) indicators.
+#   - Identifies recent bullish cross events where fast SMMA crosses above slow SMMA,
+#     filtering for strong volume and price, and optionally for TSI "breakout" confirmation.
+#   - Aggregates and prints all matches in two lists: those confirmed by TSI, and those 
+#     detected without TSI filter.
+#   - Produces clear summary tables for actionable opportunities with relevant stats.
+#
+# The workflow helps identify stocks experiencing momentum shifts validated by price,
+# volume, and trend indicators, and guides traders for further action.
+# =============================================================================

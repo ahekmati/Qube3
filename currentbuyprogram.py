@@ -393,3 +393,29 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# =============================================================================
+# Script Summary:
+#
+# This script is an options signal scanner and semi-automated trade assistant
+# for Interactive Brokers (IBKR). It analyzes a set of equity tickers by:
+#
+#   - Connecting to IBKR and fetching recent daily and 4-hour price bars.
+#   - Calculating fast/slow Smoothed Moving Averages (SMMA) to identify 
+#     bullish and re-entry signals for each ticker and timeframe.
+#   - Evaluating suitable call option contracts (strike/expiry) for each signal.
+#   - Computing option metrics (Greeks, implied volatility, probabilistic stats)
+#     and a multifactor score for ranking signals by trade quality.
+#   - Excluding trades for contracts already held, to avoid duplicates.
+#   - Presenting ranked buy signals and allowing the user to select which 
+#     trades to execute interactively.
+#   - Detecting recent bearish cross signals and offering to close any 
+#     corresponding open call option positions.
+#   - Displaying all current open option positions with key statistics such as 
+#     entry price, last price, Greeks, IV, DTE, %OTM, expected move, and P&L.
+#   - Disconnecting cleanly from IBKR after processing.
+#
+# The workflow is interactive, combining systematic signal scanning and
+# position management in a user-driven, risk-controlled manner.
+# =============================================================================
