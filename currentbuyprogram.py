@@ -1,468 +1,395 @@
-#############################################################
-# Automated Trading Script for IBKR with SMMA/SuperTrend Logic
-#############################################################
-#
-# This script connects to the Interactive Brokers Gateway via Python,
-# and runs a systematic trading strategy using a list of user-defined tickers.
-#
-# Major features and operational flow:
-#
-# 1. DATA ACQUISITION:
-#    - Fetches historical data for all user tickers:
-#         - Daily bars (1-day) covering 120 days
-#         - 4-hour bars (4h) covering the last 60 days
-#    - Calculates technical indicators:
-#         - SMMA (Smoothed Moving Average) on both daily and 4-hour timeframes
-#         - ATR (Average True Range) for dynamic stop-loss placement
-#         - SuperTrend for dynamic trailing stops
-#    - For specific tickers (exceptions), uses ATR instead of SuperTrend logic.
-#
-# 2. ENTRY SIGNALS:
-#    - For each ticker, checks for a bullish SMMA crossover that occurred on any of the previous 10 daily and 10 4-hour bars.
-#    - Alerts and considers entry if the crossover is detected up to 10 bars back (and fast SMMA is still above slow).
-#    - Ranks qualified tickers by momentum and relative volume to select top candidates.
-#    - Places bracket orders (market entry with GTC stop and take-profit), asking for manual confirmation before execution.
-#
-# 3. TRAILING STOP MANAGEMENT:
-#    - For each open position (with an active bracket order):
-#         - Recalculates trailing stop based on the latest indicator (SuperTrend or ATR) at every run.
-#         - Cancels old stop orders and places new stop-loss orders (GTC) as needed for improved protection.
-#         - Requires user confirmation for all critical order submissions and updates.
-#
-# 4. POSITION/STATE MANAGEMENT:
-#    - Tracks positions and reentries in a local JSON file for continuity between runs.
-#    - Cleans up local position state to match actual IBKR portfolio.
-#
-# 5. PROTECTION:
-#    - Filters out long entries if the market (SPY) is underperforming, but always manages stops.
-#    - Uses exceptions list for ETFs that require alternate stop logic.
-#
-# 6. REPORTING:
-#    - Prints a ranked list of new trade candidates each cycle.
-#    - Summarizes all open positions and associated stop-loss levels at the end of each run.
-#
-# 7. USER CONFIRMATION:
-#    - All entry and stop-loss order actions require manual (keyboard) confirmation before submission.
-#
-# This script is designed to be run periodically (manually or automated).
-# Each run updates trailing stops, checks for new entry signals, and keeps positions protected based on systematic rules.
-#############################################################
-
-import logging
-import json
-import pytz
-import pandas as pd
 import numpy as np
-import time
-from ib_insync import IB, Stock, util, Order
-
-CONFIG_VERSION = "1.0"
-ATR_PERIOD = 10
-ATR_MULTIPLIER = 1.0
-TP_MULTIPLIER = 2.0
-SUPERTREND_TRAIL_PERIOD = 22
-SUPERTREND_TRAIL_MULTIPLIER = 2.0
-SMMA_NORMAL_FAST = 12
-SMMA_NORMAL_SLOW = 36
-SMMA_EX_FAST = 10
-SMMA_EX_SLOW = 21
-EXCEPTION_TICKERS = {"SQQQ", "VXX", "TLT", "GLD", "SOXS", "SPXS", "FAZ", "SARK"}
+import pandas as pd
+from datetime import datetime
+from math import sqrt
+from ib_insync import *
+import re
 
 def smma(series, window):
-    s = pd.Series(series)
-    if len(s) < window: return s.copy()
-    result = s.copy()
-    result.iloc[:window] = s.iloc[:window].mean()
-    for i in range(window, len(result)):
-        result.iloc[i] = (result.iloc[i-1]*(window-1) + s.iloc[i])/window
-    return result
+    return pd.Series(series).ewm(alpha=1/window, adjust=False).mean()
 
-def atr(df, window=14):
-    high_low = df['high'] - df['low']
-    high_close = np.abs(df['high'] - df['close'].shift(1))
-    low_close = np.abs(df['low'] - df['close'].shift(1))
-    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-    return tr.rolling(window).mean()
+def fetch_bars(ib, ticker, duration_str, bar_size, exchange):
+    contract = Stock(ticker, exchange, 'USD')
+    try:
+        bars = ib.reqHistoricalData(
+            contract,
+            endDateTime='',
+            durationStr=duration_str,
+            barSizeSetting=bar_size,
+            whatToShow='TRADES',
+            useRTH=False
+        )
+        return bars
+    except Exception:
+        return None
 
-def supertrend(df, period=10, multiplier=2.0):
-    df = df.copy()
-    atr_ = atr(df, period)
-    hl2 = (df['high'] + df['low']) / 2
-    final_upperband = hl2 + (multiplier * atr_)
-    final_lowerband = hl2 - (multiplier * atr_)
-    supertrend_vals = []
-    direction = []
-    for i in range(len(df)):
-        if i == 0:
-            supertrend_vals.append(final_lowerband.iloc[i])
-            direction.append("green")
-            continue
-        prev_st = supertrend_vals[-1]
-        if df['close'].iloc[i] > prev_st:
-            st = max(final_lowerband.iloc[i], prev_st)
-            direction.append("green")
-        else:
-            st = min(final_upperband.iloc[i], prev_st)
-            direction.append("red")
-        supertrend_vals.append(st)
-    return pd.Series(supertrend_vals, index=df.index), pd.Series(direction, index=df.index)
+def analyze_crosses_and_reentries(df, fast, slow, ticker, timeframe, lookback=10):
+    df['smma_fast'] = smma(df['close'], fast)
+    df['smma_slow'] = smma(df['close'], slow)
+    candidates = []
+    cross_events = []
+    swing_high = None
+    price_below = False
+    for i in range(1, len(df)):
+        if df['smma_fast'].iloc[i] > df['smma_slow'].iloc[i]:
+            if swing_high is None or df['high'].iloc[i] > swing_high:
+                swing_high = df['high'].iloc[i]
+        if df['smma_fast'].iloc[i] > df['smma_slow'].iloc[i] and df['smma_fast'].iloc[i-1] <= df['smma_slow'].iloc[i-1]:
+            cross_events.append({"type": "bull", "cross_date": df.index[i]})
+            if i >= len(df) - lookback:
+                candidates.append({"type": "bull", "cross_date": df.index[i], "swing_high": df['high'].iloc[i]})
+            swing_high = df['high'].iloc[i]
+            price_below = False
+        if df['smma_fast'].iloc[i] < df['smma_slow'].iloc[i] and df['smma_fast'].iloc[i-1] >= df['smma_slow'].iloc[i-1]:
+            cross_events.append({"type": "bear", "cross_date": df.index[i]})
+            swing_high = None
+            price_below = False
+        if df['smma_fast'].iloc[i] > df['smma_slow'].iloc[i]:
+            if df['close'].iloc[i-1] > df['smma_slow'].iloc[i-1] and df['close'].iloc[i] < df['smma_slow'].iloc[i]:
+                price_below = True
+            if price_below and df['close'].iloc[i] > df['smma_slow'].iloc[i]:
+                if i >= len(df) - lookback:
+                    candidates.append({"type": "reentry", "cross_date": df.index[i], "swing_high": swing_high})
+                price_below = False
+    return candidates, cross_events
 
-def ask_confirm(symbol, action, order):
-    details = (
-        f"\n==== Order Confirmation Needed ====\n"
-        f"Symbol: {symbol}\n"
-        f"Order Action: {order.action}\n"
-        f"Order Type: {order.orderType}\n"
-        f"Price: {(order.lmtPrice if hasattr(order, 'lmtPrice') else (order.auxPrice if hasattr(order, 'auxPrice') else 'Market'))}\n"
-        f"Quantity: {order.totalQuantity}\n"
-        f"TIF: {order.tif}\n"
-        f"DESC: {action}\n"
-        "Type 'yes' to confirm> "
-    )
-    resp = input(details)
-    return resp.strip().lower() == "yes"
+def select_option_contract(ib, underlying, expiry_after_days, strike_target):
+    try:
+        chains = ib.reqSecDefOptParams(underlying.symbol, '', underlying.secType, underlying.conId)
+        chain = next((c for c in chains if c.tradingClass == underlying.symbol or c.exchange in ['SMART', 'CBOE']), None)
+        if not chain: return None
+        today = datetime.now().date()
+        expiry_dates = sorted([datetime.strptime(d, "%Y%m%d").date() for d in chain.expirations])
+        if not expiry_dates: return None
+        strikes = sorted(chain.strikes)
+        if not strikes: return None
+        if strike_target < strikes[0]: strike_target = strikes[0]
+        if strike_target > strikes[-1]: strike_target = strikes[-1]
+        target_expiry = min(expiry_dates, key=lambda d: abs((d - today).days - expiry_after_days))
+        target_expiry_str = target_expiry.strftime("%Y%m%d")
+        target_strike = min(strikes, key=lambda x: abs(x - strike_target))
+        contract = Option(underlying.symbol, target_expiry_str, target_strike, 'C', 'SMART')
+        ib.qualifyContracts(contract)
+        if not getattr(contract, 'conId', None) or contract.conId == 0:
+            return None
+        return contract
+    except Exception:
+        return None
 
-class State:
-    def __init__(self, fname):
-        self.fname = fname
-        try:
-            with open(fname, 'r') as f: self.data = json.load(f)
-        except Exception: self.data = {}
-        if "positions" not in self.data:
-            self.data["positions"] = {}
-        if "reentries" not in self.data:
-            self.data["reentries"] = {}
-        self.data["max_reentries"] = 3
-    def save(self):
-        with open(self.fname, 'w') as f: json.dump(self.data, f, indent=2)
-
-def fetch_daily_df(ib, symbol, days=120, retries=3):
-    contract = Stock(symbol, 'SMART', 'USD')
-    duration = f"{days} D"
-    for attempt in range(retries):
-        try:
-            bars = ib.reqHistoricalData(contract, '', duration, '1 day', 'TRADES', useRTH=True, formatDate=1)
-            df = util.df(bars)
-            if len(df) > 0:
-                print(f"Fetched {len(df)} daily bars for {symbol}.")
-                return df
-        except Exception as e:
-            print(f"Attempt {attempt+1} failed for {symbol} (daily): {e}")
-            time.sleep(2)
-    raise ValueError('No daily data for '+symbol)
-
-def fetch_4h_df(ib, symbol, days=60, retries=3):
-    contract = Stock(symbol, 'SMART', 'USD')
-    duration = f"{days} D"
-    for attempt in range(retries):
-        try:
-            bars_ = ib.reqHistoricalData(contract, '', duration, '4 hours', 'TRADES', useRTH=True, formatDate=1)
-            df = util.df(bars_)
-            if df is not None and len(df) > 0:
-                print(f"Fetched {len(df)} 4-hour bars for {symbol}.")
-                return df
-        except Exception as e:
-            print(f"Attempt {attempt+1} failed for {symbol} (4h): {e}")
-            time.sleep(2)
-    raise ValueError('No 4h data for '+symbol)
-
-def find_smma_crossover(fast, slow, lookback=10):
-    """
-    Returns bars_ago (1 = most recent bar, 2 = previous, ...) where a bullish SMMA crossover
-    occurred within 'lookback' bars ago and fast is still above slow today. None if not found.
-    """
-    for i in range(-lookback, 0):
-        if (fast.iloc[i-1] <= slow.iloc[i-1]) and (fast.iloc[i] > slow.iloc[i]):
-            # Confirm fast is still above slow at latest bar
-            if fast.iloc[-1] > slow.iloc[-1]:
-                return abs(i)
-    return None
-
-def get_momentum_rvol_score(df, lookback=20):
-    if len(df) < lookback + 2:
+def get_option_metrics(ib, contract):
+    try:
+        ticker = ib.reqMktData(contract, "106", False, False)  # 106 for Greeks
+        ib.sleep(2)
+        delta = ticker.modelGreeks.delta
+        iv = ticker.modelGreeks.impliedVol
+        bid, ask = ticker.bid, ticker.ask
+        price = (bid + ask) / 2 if bid is not None and ask is not None else None
+        return delta, iv, price
+    except Exception:
         return None, None, None
-    momentum = (df['close'].iloc[-1] - df['close'].iloc[-lookback]) / df['close'].iloc[-lookback]
-    avg_vol = df['volume'].iloc[-lookback-1:-1].mean()
-    today_vol = df['volume'].iloc[-1]
-    rvol = today_vol / avg_vol if avg_vol > 0 else 0
-    score = momentum * 0.6 + rvol * 0.4
-    return score, rvol, momentum
 
-def get_trade_size(available_cap, price, max_alloc=0.10):
-    raw = int((available_cap * max_alloc) // price)
-    return max(raw, 1)
+def multifactor_score(delta, iv, momentum):
+    sc = 0
+    if delta is not None: sc += abs(delta) * 0.5
+    if iv is not None: sc += (1.0 - min(iv, 2.0) / 2.0) * 0.25
+    sc += momentum * 0.25
+    return round(sc, 3)
 
-def cancel_existing_stop(ib, symbol):
-    contract = Stock(symbol, 'SMART', 'USD')
-    for trade in ib.trades():
-        if (trade.contract.symbol == symbol and
-            trade.order.orderType == 'STP' and
-            trade.order.action == 'SELL' and
-            trade.orderStatus.status not in ('Filled', 'Cancelled')):
-            if ask_confirm(symbol, "Cancel existing STOP order", trade.order):
-                ib.cancelOrder(trade.order)
-                print("Order Canceled.")
-            else:
-                print("Stop Cancel not confirmed.")
-    time.sleep(1)
+def place_order(ib, contract, ticker, reason='', action='BUY'):
+    print(f"[ORDER] {action} 1 {contract.symbol} {contract.lastTradeDateOrContractMonth} {contract.strike} {contract.right} ({reason})")
+    order = MarketOrder(action, 1)
+    trade = ib.placeOrder(contract, order)
+    while not trade.isDone():
+        ib.waitOnUpdate(timeout=1)
+    fill_px = trade.log[-1].price if trade.log else 'unknown'
+    print(f"[EXECUTED] {action} {contract.symbol} {contract.strike} @ {fill_px}")
+    return trade
+
+def find_open_option_positions(ib):
+    open_positions = []
+    positions = ib.positions()
+    for pos in positions:
+        con = pos.contract
+        if isinstance(con, Option) and pos.position > 0:
+            try:
+                delta, iv, price = get_option_metrics(ib, con)
+                expiry_dt = datetime.strptime(con.lastTradeDateOrContractMonth[:8], "%Y%m%d")
+                days_to_exp = (expiry_dt.date() - datetime.now().date()).days
+                pct_otm = 100 * ((con.strike - pos.averageCost) / pos.averageCost)
+                exp_move = pos.averageCost * (iv if iv is not None else 0.3) * sqrt(days_to_exp / 365) if iv is not None and days_to_exp > 0 else None
+                in_exp_move = abs(con.strike - pos.averageCost) <= exp_move if exp_move is not None else None
+                pnl = (price - pos.averageCost) * 100 * pos.position if (price is not None and pos.averageCost is not None) else None
+            except Exception:
+                delta, iv, price, days_to_exp, pct_otm, exp_move, in_exp_move, pnl = None, None, None, None, None, None, None, None
+            open_positions.append({
+                'ticker': con.symbol,
+                'expiry': con.lastTradeDateOrContractMonth,
+                'strike': con.strike,
+                'right': con.right,
+                'position': pos.position,
+                'avg_cost': pos.averageCost,
+                'delta': delta,
+                'iv': iv,
+                'price': price,
+                'days_to_exp': days_to_exp,
+                'pct_otm': pct_otm,
+                'exp_move': exp_move,
+                'in_exp_move': in_exp_move,
+                'pnl': pnl
+            })
+    return open_positions
+
+def fmt(v):
+    try:
+        if v is None: return 'NA'
+        return f"{float(v):.2f}"
+    except:
+        return str(v) if v is not None else 'NA'
 
 def main():
-    print("Starting trading script...")
-    logging.basicConfig(level=logging.INFO)
+    print("\n=== SMMA MULTI-TICKER OPTION SIGNAL RANKER (EXCLUDES EXISTING CALL POSITIONS) ===")
+    tickers = [
+        "AAPL", "AMZN", "AMD", "APP", "ARKK", "DUST", "GOOGL", "HOOD", "IBIT", "MASS",
+        "META", "MSFT", "NFLX", "NVDA", "NUGT", "PLTR", "QCOM", "QQQ", "QTUM", "SARK",
+        "SOXL", "SOXS", "SPXS", "SPY", "SQQQ", "SSO", "TQQQ", "TSLA", "TSLL", "VXX"
+    ]
+    exchanges = ['ARCA', 'NASDAQ', 'SMART']
+    lookback = '180 D'
+    bar_lookback = 10
     ib = IB()
-    print("Connecting to IB...")
-    ib.connect('127.0.0.1', 4001, clientId=1)
-    print("Connected to IB.")
-    config = json.load(open('config.json'))
-    state = State('state.json')
-    if "positions" not in state.data:
-        state.data["positions"] = {}
-    if "reentries" not in state.data:
-        state.data["reentries"] = {}
-    state.data["max_reentries"] = 3
+    try:
+        ib.connect('127.0.0.1', 4001, clientId=101)
+    except Exception as e:
+        print(f"Could not connect to IBKR: {str(e)}")
+        return
 
-    symbols = config['user_tickers']
-    max_positions = config.get("max_stocks", 5)
-    max_alloc = 0.15
-    max_re = state.data["max_reentries"]
+    today = datetime.now().date()
+    all_signals = []
+    buy_candidates_map = {}
 
-    print("Retrieving account balance...")
-    account_bal = float([a.value for a in ib.accountSummary() if a.tag == 'NetLiquidation' and a.currency == 'USD'][0])
-    print(f"Account balance: ${account_bal:.2f}")
+    # --- Get open positions, build a set for fast lookup ---
+    open_positions = find_open_option_positions(ib)
+    current_calls = set()
+    for p in open_positions:
+        if p['right'] == 'C':
+            current_calls.add((p['ticker'], p['strike'], p['expiry']))
 
-    print("Computing SPY filter (9 SMMA vs 18 SMMA)...")
-    spy_df = fetch_daily_df(ib, "SPY", days=120)
-    spy_df["smma9"] = smma(spy_df['close'], 9)
-    spy_df["smma18"] = smma(spy_df['close'], 18)
-    spy_9 = spy_df["smma9"].iloc[-1]
-    spy_18 = spy_df["smma18"].iloc[-1]
-    spy_long_allowed = spy_9 > spy_18
-    print(f"SPY 9 SMMA: {spy_9:.2f} | 18 SMMA: {spy_18:.2f} | Long positions allowed for most: {spy_long_allowed}")
-
-    ibkr_positions = ib.positions()
-    ibkr_open_symbols = set(p.contract.symbol for p in ibkr_positions)
-    symbols_to_remove = [s for s in state.data["positions"] if s not in ibkr_open_symbols]
-    for symbol in symbols_to_remove:
-        print(f"[Cleanup] Removing {symbol} from local state: no longer open in IBKR.")
-        del state.data["positions"][symbol]
-
-    if not spy_long_allowed:
-        print("SPY filter triggered! Protective stops activated.")
-        for symbol in list(state.data['positions'].keys()):
-            if symbol in EXCEPTION_TICKERS:
-                continue
-            pos = state.data['positions'][symbol]
-            try:
-                df = fetch_daily_df(ib, symbol, days=120)
-                recent_low = df['close'].iloc[-5:].min()
-                two_pct_below = df['close'].iloc[-1] * 0.98
-                protective_stop = min(recent_low, two_pct_below)
-                cancel_existing_stop(ib, symbol)
-                contract = Stock(symbol, 'SMART', 'USD')
-                stp_order = Order(
-                    action="SELL",
-                    orderType="STP",
-                    auxPrice=round(protective_stop, 2),
-                    totalQuantity=pos['shares'],
-                    tif='GTC'
-                )
-                if ask_confirm(symbol, "PROTECTIVE STOP (SELL STOP)", stp_order):
-                    ib.placeOrder(contract, stp_order)
-                    print(f"Protective stop set for {symbol} at {protective_stop:.2f}")
-                    pos["active_stop"] = protective_stop
-                    pos["stop_type"] = "protective"
-                else:
-                    print("Stop order was not confirmed and not placed.")
-            except Exception as e:
-                logging.error(f"Error setting protective stop for {symbol}: {e}")
-                print(f"Error setting protective stop for {symbol}: {e}")
-
-    for symbol, pos in state.data["positions"].items():
-        if symbol not in ibkr_open_symbols:
-            print(f"[Info] Skipping stop logic for {symbol}: no open position in IBKR.")
-            continue
-        try:
-            df = fetch_daily_df(ib, symbol, days=120)
-            if symbol in EXCEPTION_TICKERS:
-                high_since_entry = pos.get("high_since_entry", pos["entry_price"])
-                atr_latest = atr(df, ATR_PERIOD).iloc[-1]
-                new_high = max(high_since_entry, df["close"].iloc[-1])
-                move = new_high - high_since_entry
-                if move >= ATR_MULTIPLIER * atr_latest:
-                    stop_price = new_high - ATR_MULTIPLIER * atr_latest
-                    if stop_price > pos.get("active_stop", -np.inf):
-                        print(f"ATR trailing stop raised for {symbol} from {pos.get('active_stop', 'None'):.2f} to {stop_price:.2f}")
-                        cancel_existing_stop(ib, symbol)
-                        contract = Stock(symbol, 'SMART', 'USD')
-                        stp_order = Order(action="SELL", orderType="STP", auxPrice=round(stop_price, 2),
-                                          totalQuantity=pos['shares'], tif='GTC')
-                        if ask_confirm(symbol, "ATR STOP (SELL STOP)", stp_order):
-                            ib.placeOrder(contract, stp_order)
-                            print("Trailing ATR Stop set/updated.")
-                            pos["active_stop"] = stop_price
-                            pos["stop_type"] = "atr"
-                            pos["high_since_entry"] = new_high
-                        else:
-                            print("ATR Stop update not confirmed.")
-                    else:
-                        pos["high_since_entry"] = new_high
-                else:
-                    pos["high_since_entry"] = new_high
-            else:
-                st, direction = supertrend(df, SUPERTREND_TRAIL_PERIOD, SUPERTREND_TRAIL_MULTIPLIER)
-                curr_close = df['close'].iloc[-1]
-                supertrend_val = float(st.iloc[-1])
-                is_green = (direction.iloc[-1] == "green")
-                if is_green and supertrend_val < curr_close:
-                    if supertrend_val > pos.get("active_stop", -np.inf):
-                        print(f"Raising SuperTrend trailing stop for {symbol} from {pos.get('active_stop', 'None'):.2f} to {supertrend_val:.2f}")
-                        cancel_existing_stop(ib, symbol)
-                        contract = Stock(symbol, 'SMART', 'USD')
-                        stp_order = Order(action="SELL", orderType="STP", auxPrice=round(supertrend_val, 2),
-                                          totalQuantity=pos['shares'], tif='GTC')
-                        if ask_confirm(symbol, "SUPERTREND TRAILING STOP (SELL STOP)", stp_order):
-                            ib.placeOrder(contract, stp_order)
-                            print("SuperTrend stop updated.")
-                            pos["active_stop"] = supertrend_val
-                            pos["stop_type"] = "supertrend"
-                        else:
-                            print("SuperTrend stop update not confirmed.")
-                    else:
-                        print(f"SuperTrend value for {symbol} is not above current stop; not updating.")
-                else:
-                    print(f"SuperTrend trailing skip for {symbol}: condition not met (green:{is_green}, value:{supertrend_val:.2f}, close:{curr_close:.2f})")
-        except Exception as e:
-            print(f"Failed stop update for {symbol}: {e}")
-
-    # ---- ENTRY LOGIC WITH CROSSOVERS UP TO 10 BARS AGO ----
-
-    qualified = []
-    for symbol in symbols:
-        if symbol in state.data['positions']:
-            continue
-        if not spy_long_allowed and symbol not in EXCEPTION_TICKERS:
-            continue
-        try:
-            # DAILY LOGIC
-            df_daily = fetch_daily_df(ib, symbol, days=120)
-            if symbol in EXCEPTION_TICKERS:
-                df_daily["smma_fast"] = smma(df_daily['close'], SMMA_EX_FAST)
-                df_daily["smma_slow"] = smma(df_daily['close'], SMMA_EX_SLOW)
-                slow_smma_window = SMMA_EX_SLOW
-            else:
-                df_daily["smma_fast"] = smma(df_daily['close'], SMMA_NORMAL_FAST)
-                df_daily["smma_slow"] = smma(df_daily['close'], SMMA_NORMAL_SLOW)
-                slow_smma_window = SMMA_NORMAL_SLOW
-
-            daily_cross_bars_ago = find_smma_crossover(df_daily["smma_fast"], df_daily["smma_slow"], lookback=10)
-
-            # 4-HOUR LOGIC
-            df_4h = fetch_4h_df(ib, symbol, days=60)
-            df_4h["smma_26"] = smma(df_4h["close"], 26)
-            df_4h["smma_150"] = smma(df_4h["close"], 150)
-            fourh_cross_bars_ago = find_smma_crossover(df_4h["smma_26"], df_4h["smma_150"], lookback=10)
-
-            reentries = state.data['reentries'].get(symbol, 0)
-            if daily_cross_bars_ago and fourh_cross_bars_ago:
-                score, rvol, momentum = get_momentum_rvol_score(df_daily)
-                if score is not None:
-                    print(f"ALERT: {symbol} SMMA crossover: Daily {daily_cross_bars_ago} bars ago, 4-hour {fourh_cross_bars_ago} bars ago (fast>slow)")
-                    qualified.append({
-                        'symbol': symbol, 'score': score, 'rvol': rvol,
-                        'momentum': momentum, 'price': float(df_daily["close"].iloc[-1]),
-                        'df': df_daily, 'reentries': reentries, 'slow_smma_window': slow_smma_window
-                    })
-        except Exception as e:
-            print(f"Error scanning {symbol} for entry: {e}")
-
-    qualified_sorted = sorted(qualified, key=lambda x: x['score'], reverse=True)
-    top_qualified = qualified_sorted[:max_positions]
-    print("\nThe top 5 momentum ranking that also meet the criteria are as follows:")
-    for i, q in enumerate(top_qualified):
-        print(f"{i+1}. {q['symbol']} | Score={q['score']:.3f} | RVOL={q['rvol']:.2f} | Momentum={q['momentum']:.3f}")
-
-    for q in top_qualified:
-        if len(state.data['positions']) >= max_positions:
-            print("Max positions reached.")
-            break
-        if q['reentries'] < max_re:
-            if q['price'] > account_bal * max_alloc:
-                print(f"Skipping {q['symbol']} - 1 share (${q['price']:.2f}) exceeds {max_alloc*100:.0f}% of capital (${account_bal * max_alloc:.2f})")
-                continue
-            df = q['df']
-            slow_smma_window = q['slow_smma_window']
-            slow_smma = smma(df['close'], slow_smma_window)
-            slow_value = float(slow_smma.iloc[-1])
-            stop_price = slow_value - ATR_MULTIPLIER * float(atr(df, ATR_PERIOD).iloc[-1])
-            size = get_trade_size(account_bal, q['price'], max_alloc)
-            contract = Stock(q['symbol'], 'SMART', 'USD')
-            ib.qualifyContracts(contract)
-            parent_ord = Order(action="BUY", orderType="MKT", totalQuantity=size, tif='DAY', transmit=False)
-            tp_ord = Order(action="SELL", orderType="LMT", totalQuantity=size,
-                           lmtPrice=round(q['price'] + TP_MULTIPLIER * float(atr(df, ATR_PERIOD).iloc[-1]),2),
-                           parentId=parent_ord.orderId, tif='GTC', transmit=False)
-            stp_ord = Order(action="SELL", orderType="STP", totalQuantity=size,
-                            auxPrice=round(stop_price,2), parentId=parent_ord.orderId, tif='GTC', transmit=True)
-            if ask_confirm(q['symbol'], "ENTRY BUY", parent_ord):
-                ib.placeOrder(contract, parent_ord)
-                if ask_confirm(q['symbol'], "TAKE PROFIT SELL", tp_ord):
-                    ib.placeOrder(contract, tp_ord)
-                if ask_confirm(q['symbol'], "STOP LOSS SELL", stp_ord):
-                    ib.placeOrder(contract, stp_ord)
-                print(f"Market bracket order placed for {q['symbol']} (stop {stop_price:.2f}), waiting for execution...")
-                state.data['positions'][q['symbol']] = {
-                    'entry_price': q['price'],
-                    'shares': size,
-                    'init_stop': stop_price,
-                    'active_stop': stop_price,
-                    'take_profit': q['price'] + TP_MULTIPLIER * float(atr(df, ATR_PERIOD).iloc[-1]),
-                    'stop_type': "smma_atr" if q['symbol'] not in EXCEPTION_TICKERS else "atr",
-                    'cross_date': str(df.index[-1]),
-                    'high_since_entry': q['price'] if q['symbol'] in EXCEPTION_TICKERS else None
+    for ticker in tickers:
+        # DAILY scan
+        bars_daily = None
+        for exch in exchanges:
+            bars_daily = fetch_bars(ib, ticker, lookback, "1 day", exch)
+            if bars_daily: break
+        if bars_daily and len(bars_daily) > 0:
+            df_daily = util.df(bars_daily)
+            df_daily['date'] = pd.to_datetime(df_daily['date'])
+            df_daily = df_daily.set_index('date')
+            candidates, cross_events = analyze_crosses_and_reentries(df_daily, 9, 18, ticker, "DAILY 9/18", lookback=bar_lookback)
+            last_close = df_daily['close'].iloc[-1]
+            momentum = (df_daily['close'].iloc[-1] - df_daily['close'].iloc[-10]) / df_daily['close'].iloc[-10] if len(df_daily) > 10 else 0.0
+            for signal in candidates:
+                underlying = Stock(ticker, 'SMART', 'USD')
+                ib.qualifyContracts(underlying)
+                oc = select_option_contract(ib, underlying, 45, signal['swing_high'])
+                if not oc:
+                    continue
+                # --- SKIP if already holding this call contract ---
+                if (ticker, oc.strike, oc.lastTradeDateOrContractMonth) in current_calls:
+                    continue
+                delta, iv, price = get_option_metrics(ib, oc)
+                try:
+                    expiry_dt = datetime.strptime(oc.lastTradeDateOrContractMonth[:8], "%Y%m%d")
+                    days_to_exp = (expiry_dt.date() - today).days
+                except Exception:
+                    days_to_exp = None
+                try:
+                    pct_otm = 100*((oc.strike - last_close)/last_close)
+                except Exception:
+                    pct_otm = None
+                prob_itm = abs(delta) if delta is not None else None
+                prob_touch = min(2*abs(delta), 1.0) if delta is not None else None
+                exp_move = last_close * iv * sqrt(days_to_exp/365) if iv is not None and days_to_exp is not None and days_to_exp > 0 else None
+                in_exp_move = abs(oc.strike - last_close) <= exp_move if exp_move is not None else None
+                sc = multifactor_score(delta, iv, momentum)
+                sigdict = {
+                    'ticker': ticker,
+                    'type': 'daily-' + signal['type'],
+                    'underlying_price': last_close,
+                    'option_price': price,
+                    'delta': delta,
+                    'iv': iv,
+                    'momentum': momentum,
+                    'strike': oc.strike,
+                    'expiry': oc.lastTradeDateOrContractMonth,
+                    'days_to_exp': days_to_exp,
+                    'pct_otm': pct_otm,
+                    'prob_itm': prob_itm,
+                    'prob_touch': prob_touch,
+                    'exp_move': exp_move,
+                    'in_exp_move': in_exp_move,
+                    'score': sc,
+                    'swing_high': signal['swing_high'],
+                    'cross_date': str(signal['cross_date'].date()) if 'cross_date' in signal else ''
                 }
-                state.data['reentries'][q['symbol']] = q['reentries'] + 1
-                logging.info(f"BUY {q['symbol']} {size} @ {q['price']:.2f}, TP {state.data['positions'][q['symbol']]['take_profit']:.2f}, stop {state.data['positions'][q['symbol']]['active_stop']:.2f}")
-                print(f"Entry position recorded for {q['symbol']}.")
-            else:
-                print(f"Bracket entry for {q['symbol']} NOT CONFIRMED AND NOT PLACED.")
+                all_signals.append(sigdict)
+                buy_candidates_map[(ticker, oc.strike, oc.lastTradeDateOrContractMonth)] = sigdict
+            for ce in cross_events:
+                if ce['type'] == 'bear':
+                    cross_day = ce['cross_date'].date()
+                    if ce['cross_date'] >= df_daily.index[-bar_lookback]:
+                        for pos in open_positions:
+                            con = Option(pos['ticker'], pos['expiry'], pos['strike'], 'C', 'SMART')
+                            if (
+                                pos['ticker'] == ticker
+                                and pos['position'] > 0
+                                and (ticker, pos['strike'], pos['expiry']) in buy_candidates_map
+                            ):
+                                print(f"\n[SELL SIGNAL] {ticker} {pos['strike']} {pos['expiry']} -- detected bear cross {cross_day}.")
+                                inp = input(f"SELL {pos['position']} contracts ({pos['ticker']} {pos['strike']} {pos['expiry']}) now? (y/n): ").strip().lower()
+                                if inp == "y":
+                                    place_order(ib, con, ticker, f"Bear SMA cross ({cross_day})", action='SELL')
+        # 4H scan
+        bars_4h = None
+        for exch in exchanges:
+            bars_4h = fetch_bars(ib, ticker, lookback, "4 hours", exch)
+            if bars_4h: break
+        if bars_4h and len(bars_4h) > 0:
+            df_4h = util.df(bars_4h)
+            df_4h['date'] = pd.to_datetime(df_4h['date'])
+            df_4h = df_4h.set_index('date')
+            candidates4, cross_events4 = analyze_crosses_and_reentries(df_4h, 26, 150, ticker, "4H 26/150", lookback=bar_lookback)
+            last_close_4h = df_4h['close'].iloc[-1]
+            momentum_4h = (df_4h['close'].iloc[-1] - df_4h['close'].iloc[-10]) / df_4h['close'].iloc[-10] if len(df_4h) > 10 else 0.0
+            for signal in candidates4:
+                underlying = Stock(ticker, 'SMART', 'USD')
+                ib.qualifyContracts(underlying)
+                oc = select_option_contract(ib, underlying, 45, signal['swing_high'])
+                if not oc:
+                    continue
+                # --- SKIP if already holding this call contract ---
+                if (ticker, oc.strike, oc.lastTradeDateOrContractMonth) in current_calls:
+                    continue
+                delta, iv, price = get_option_metrics(ib, oc)
+                try:
+                    expiry_dt = datetime.strptime(oc.lastTradeDateOrContractMonth[:8], "%Y%m%d")
+                    days_to_exp = (expiry_dt.date() - today).days
+                except Exception:
+                    days_to_exp = None
+                try:
+                    pct_otm = 100*((oc.strike - last_close_4h)/last_close_4h)
+                except Exception:
+                    pct_otm = None
+                prob_itm = abs(delta) if delta is not None else None
+                prob_touch = min(2*abs(delta), 1.0) if delta is not None else None
+                exp_move = last_close_4h * iv * sqrt(days_to_exp/365) if iv is not None and days_to_exp is not None and days_to_exp > 0 else None
+                in_exp_move = abs(oc.strike - last_close_4h) <= exp_move if exp_move is not None else None
+                sc = multifactor_score(delta, iv, momentum_4h)
+                sigdict = {
+                    'ticker': ticker,
+                    'type': '4h-' + signal['type'],
+                    'underlying_price': last_close_4h,
+                    'option_price': price,
+                    'delta': delta,
+                    'iv': iv,
+                    'momentum': momentum_4h,
+                    'strike': oc.strike,
+                    'expiry': oc.lastTradeDateOrContractMonth,
+                    'days_to_exp': days_to_exp,
+                    'pct_otm': pct_otm,
+                    'prob_itm': prob_itm,
+                    'prob_touch': prob_touch,
+                    'exp_move': exp_move,
+                    'in_exp_move': in_exp_move,
+                    'score': sc,
+                    'swing_high': signal['swing_high'],
+                    'cross_date': str(signal['cross_date'].date()) if 'cross_date' in signal else ''
+                }
+                all_signals.append(sigdict)
+                buy_candidates_map[(ticker, oc.strike, oc.lastTradeDateOrContractMonth)] = sigdict
+            for ce in cross_events4:
+                if ce['type'] == 'bear':
+                    cross_day = ce['cross_date'].date()
+                    if ce['cross_date'] >= df_4h.index[-bar_lookback]:
+                        for pos in open_positions:
+                            con = Option(pos['ticker'], pos['expiry'], pos['strike'], 'C', 'SMART')
+                            if (
+                                pos['ticker'] == ticker
+                                and pos['position'] > 0
+                                and (ticker, pos['strike'], pos['expiry']) in buy_candidates_map
+                            ):
+                                print(f"\n[SELL SIGNAL] {ticker} {pos['strike']} {pos['expiry']} -- detected bear 4H cross {cross_day}.")
+                                inp = input(f"SELL {pos['position']} contracts ({pos['ticker']} {pos['strike']} {pos['expiry']}) now? (y/n): ").strip().lower()
+                                if inp == "y":
+                                    place_order(ib, con, ticker, f"Bear SMA 4H cross ({cross_day})", action='SELL')
 
-    state.save()
-    print("State saved.")
-    logging.info("End of trading cycle.")
+    ranked = sorted(all_signals, key=lambda x: x['score'], reverse=True)
+    headers = [
+        "Idx", "Ticker", "Type", "UndPx", "OptPx", "Delta", "IV", "%OTM", "DTE", "ProbITM",
+        "ProbTouch", "ExpMove", "Strike", "InExpMv", "Score", "Mom", "Expiry", "SwingHi", "CrossDate"
+    ]
+    print("\n=== BUY SIGNALS (EXCLUDING CURRENT HOLDINGS) ===")
+    print(" | ".join(f"{h:<9}" for h in headers))
+    print("-" * 170)
+    for i, r in enumerate(ranked):
+        print(
+            f"{i:<9}{r['ticker']:<9}{r['type']:<9}"
+            f"{fmt(r['underlying_price']):<9}"
+            f"{fmt(r['option_price']):<9}"
+            f"{fmt(r['delta']):<9}"
+            f"{fmt(r['iv']):<9}"
+            f"{fmt(r['pct_otm']):<9}"
+            f"{r['days_to_exp'] if r['days_to_exp'] is not None else 'NA':<9}"
+            f"{fmt(r['prob_itm']):<9}"
+            f"{fmt(r['prob_touch']):<9}"
+            f"{fmt(r['exp_move']):<9}"
+            f"{fmt(r['strike']):<9}"
+            f"{str(r['in_exp_move']) if r['in_exp_move'] is not None else 'NA':<9}"
+            f"{fmt(r['score']):<9}"
+            f"{fmt(r['momentum']):<9}"
+            f"{r['expiry']:<9}"
+            f"{fmt(r['swing_high']):<9}"
+            f"{r['cross_date']}"
+        )
+    if ranked:
+        sel = input("\nEnter row numbers of buys to execute (comma/space): ")
+        idxs = [int(v) for v in re.findall(r'\d+', sel)]
+        for idx in idxs:
+            if 0 <= idx < len(ranked):
+                r = ranked[idx]
+                underlying = Stock(r['ticker'], 'SMART', 'USD')
+                ib.qualifyContracts(underlying)
+                oc = select_option_contract(ib, underlying, r['days_to_exp'], r['strike'])
+                if oc:
+                    place_order(ib, oc, r['ticker'], f"{r['type']} {r['cross_date']}")
+    else:
+        print("No buy signals found.")
 
-    positions = ib.positions()
-    trades = ib.trades()
-    stop_orders = {}
-    for trade in trades:
-        order = trade.order
-        contract = trade.contract
-        if order.orderType == 'STP' and order.tif == 'GTC' and order.action == 'SELL':
-            stop_orders[contract.symbol] = order.auxPrice
+    # --- ENHANCED OPEN POSITION TABLE ---
+    open_positions = find_open_option_positions(ib)
+    if open_positions:
+        print("\n=== OPEN OPTION POSITIONS (WITH ENTRY PRICE, LAST PRICE, AND P/L) ===")
+        print(" | ".join([
+            f"{h:<9}" for h in [
+                "Ticker", "Expiry", "Strike", "Type", "Qty", "EntryPx", "LastPx",
+                "Delta", "IV", "DTE", "%OTM", "ExpMove", "InExpMv", "OpenPnL"
+            ]
+        ]))
+        print("-" * 145)
+        for p in open_positions:
+            print(
+                f"{p['ticker']:<9}{p['expiry']:<9}{fmt(p['strike']):<9}"
+                f"{p['right']:<9}{p['position']:<9}{fmt(p['avg_cost']):<9}"
+                f"{fmt(p['price']):<9}{fmt(p['delta']):<9}{fmt(p['iv']):<9}"
+                f"{p['days_to_exp'] if p['days_to_exp'] is not None else 'NA':<9}"
+                f"{fmt(p['pct_otm']):<9}{fmt(p['exp_move']):<9}"
+                f"{str(p['in_exp_move']) if p['in_exp_move'] is not None else 'NA':<9}"
+                f"{fmt(p['pnl']):<9}"
+            )
+    else:
+        print("\nNo open option positions detected.")
 
-    print("\nCurrent Open Positions and Their Stop Loss Levels:")
-    print(f"{'Symbol':6} | {'Qty':>6} | {'AvgPx':>8} | {'CurPx':>8} | {'StopLoss(GTC)':>13}")
-    print("-" * 60)
-
-    for pos in positions:
-        contract = pos.contract
-        symbol = contract.symbol
-        qty = pos.position
-        avg_cost = pos.avgCost
-        stop = stop_orders.get(symbol, "None")
-        market_data = ib.reqMktData(contract, '', False, False)
-        ib.sleep(1)
-        cur_price = market_data.marketPrice()
-        if np.isnan(cur_price):
-            cur_price = market_data.last
-        if np.isnan(cur_price):
-            cur_price = "N/A"
-        else:
-            cur_price = f"{cur_price:.2f}"
-        print(f"{symbol:6} | {qty:6} | {avg_cost:8.2f} | {cur_price:8} | {stop:>13}")
-
-    print("Trading cycle complete. Disconnecting IB...")
     ib.disconnect()
-    print("Disconnected from IB.")
+    print("\n[Result] Script finished: disconnected from IBKR.")
 
 if __name__ == "__main__":
     main()

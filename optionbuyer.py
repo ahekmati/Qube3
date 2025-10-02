@@ -101,6 +101,68 @@ def select_option_contract(ib, underlying, expiry_after_days, strike_target):
         print(f"[Error] Option contract qualification failed: {str(e)}")
         return None
 
+def get_option_metrics(ib, contract):
+    contract.exchange = "SMART"
+    contract.primaryExchange = "SMART"
+    ticker = ib.reqMktData(contract, "106", False, False)
+    ib.sleep(2)
+    try:
+        delta = ticker.modelGreeks.delta
+        iv = ticker.modelGreeks.impliedVol
+        bid, ask = ticker.bid, ticker.ask
+        price = (bid + ask) / 2 if bid is not None and ask is not None else None
+        return delta, iv, price
+    except Exception:
+        return None, None, None
+
+def fmt(v):
+    try:
+        if v is None:
+            return 'NA'
+        return f"{float(v):.2f}"
+    except:
+        return str(v) if v is not None else 'NA'
+
+def find_open_option_positions(ib):
+    open_positions = []
+    positions = ib.positions()
+    for pos in positions:
+        con = pos.contract
+        if isinstance(con, Option) and pos.position > 0:
+            try:
+                delta, iv, price = get_option_metrics(ib, con)
+                expiry_dt = datetime.strptime(con.lastTradeDateOrContractMonth[:8], "%Y%m%d")
+                days_to_exp = (expiry_dt.date() - datetime.now().date()).days
+                avg_cost = getattr(pos, 'avgCost', None)
+                pnl = (price - avg_cost) * 100 * pos.position if (price is not None and avg_cost is not None) else None
+            except Exception:
+                delta, iv, price, days_to_exp, pnl, avg_cost = None, None, None, None, None, None
+            open_positions.append({
+                'ticker': con.symbol,
+                'expiry': con.lastTradeDateOrContractMonth,
+                'strike': con.strike,
+                'right': con.right,
+                'position': pos.position,
+                'avg_cost': avg_cost,
+                'price': price,
+                'days_to_exp': days_to_exp,
+                'delta': delta,
+                'iv': iv,
+                'pnl': pnl
+            })
+    return open_positions
+
+def market_close_option(ib, contract, qty):
+    contract.exchange = "SMART"
+    contract.primaryExchange = "SMART"
+    print(f"[Process] Submitting market SELL order for {qty} {contract.symbol} {contract.lastTradeDateOrContractMonth} {contract.right} {contract.strike}...")
+    order = MarketOrder('SELL', qty)
+    trade = ib.placeOrder(contract, order)
+    while not trade.isDone():
+        ib.waitOnUpdate(timeout=1)
+    print(f"[Result] MARKET CLOSE: Filled {trade.orderStatus.filled} {contract.symbol} {contract.strike} at status {trade.orderStatus.status}")
+    return trade
+
 def confirm_trade(action, contract, ticker, reason=''):
     print(f"[Prompt] About to show confirmation for: {action} 1 {contract.symbol} {contract.lastTradeDateOrContractMonth} {contract.right} Strike: {contract.strike} Ticker: {ticker} [Reason: {reason}]")
     msg = (
@@ -173,7 +235,7 @@ def main():
         return
 
     today = datetime.now().date()
-    trades_taken = False  # Track if any trades occurred
+    trades_taken = False
 
     for ticker in tickers:
         position_is_open_daily = False
@@ -285,32 +347,60 @@ def main():
                         position_is_open_4h = False
                         contract_4h = None
 
+    # === ADDED: Print open options positions and allow user to close them ===
+    open_positions = find_open_option_positions(ib)
+    if open_positions:
+        print("\n=== OPEN OPTION POSITIONS (WITH UNREALIZED P/L) ===")
+        print("Idx | Ticker | Expiry   | Strike   | Type | Qty | EntryPx | LastPx | OpenPnL")
+        print("----------------------------------------------------------------------------")
+        for i, p in enumerate(open_positions):
+            print(f"{i:<4}| {p['ticker']:<6}| {p['expiry']:<9}| {fmt(p['strike']):<8}| {p['right']:<5}| {fmt(p['position']):<4}| {fmt(p['avg_cost']):<8}| {fmt(p['price']):<7}| {fmt(p['pnl']):<8}")
+        sel = input("\nEnter row numbers of positions to CLOSE (comma/space), or press Enter to skip: ").strip()
+        idxs = [int(v) for v in re.findall(r'\d+', sel)]
+        for idx in idxs:
+            if 0 <= idx < len(open_positions):
+                pos = open_positions[idx]
+                contract = Option(pos['ticker'], pos['expiry'], pos['strike'], pos['right'], "SMART")
+                contract.exchange = "SMART"
+                contract.primaryExchange = "SMART"
+                market_close_option(ib, contract, int(pos['position']))
+    else:
+        print("\nNo open option positions detected.")
+
     ib.disconnect()
     print("[Result] Script finished: disconnected from IBKR.")
-    # Trades summary
     if trades_taken:
         print("\nAt least one trade was placed during this run.")
     else:
         print("\nNo trades placed during this run.")
 
-"""
-===============================================================================
-STEP-BY-STEP SCRIPT DESCRIPTION
-
-1. Loops over a hardcoded list of tickers (add/edit tickers in `tickers` list).
-2. For each ticker:
-    a. Fetches 180 days of daily bars (9/18 SMMA) and 4-hour bars (26/150 SMMA).
-    b. Analyzes for SMMA crossovers and reentry signals.
-    c. For each eligible signal, calls `place_order()`, which:
-        - Shows an informative confirmation prompt (`input()`) before submitting any trade (BUY or SELL).
-        - Does NOT trade without user "y" confirmation.
-    d. Ensures only one open position (per timeframe per ticker) is tracked at a time.
-    e. Only attempts to execute SELL if a tracked corresponding BUY occurred in the recent run.
-3. All signals and trades, including skips or errors, printed during execution.
-4. Upon completion, disconnects and prints that it finished.
-
-===============================================================================
-"""
-
 if __name__ == "__main__":
     main()
+
+
+
+    # =============================================================================
+# Script Summary:
+#
+# This script is an automated options trading assistant for Interactive Brokers.
+# It processes a defined list of stock tickers, analyzing both daily and 4-hour 
+# price data for each stock across major US exchanges. 
+#
+# The script performs the following:
+#   - Connects to the Interactive Brokers API (IBKR).
+#   - Fetches historical price data for each ticker.
+#   - Calculates fast and slow Smoothed Moving Averages (SMMA) on the price data.
+#   - Scans for bullish/bearish crossovers and "re-entry" signals that indicate 
+#     potential trade opportunities.
+#   - When a signal is detected, it selects a suitable options contract with 
+#     strike and expiry near the signal's reference point, prompts the user for 
+#     confirmation, and places BUY/SELL orders for options accordingly.
+#   - Tracks and reports all trades taken during the session.
+#   - At the end, displays any open option positions in the IBKR account and 
+#     gives the user the choice to close them.
+#   - Cleanly disconnects from IBKR at completion.
+#
+# The script is interactive: it requires user confirmation for any real trade, 
+# making it a semi-automated, risk-controlled trading workflow.
+# =============================================================================
+
