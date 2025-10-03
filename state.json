@@ -5,11 +5,23 @@
       "entry_price": 64.43,
       "shares": 5,
       "init_stop": 61.907198450857166,
-      "active_stop": 65.05,
+      "active_stop": 66.16318181818181,
       "take_profit": 67.632,
       "stop_type": "supertrend",
       "cross_date": "119",
       "high_since_entry": null
+    },
+    "CEG": {
+      "entry_price": 330.9,
+      "shares": 1,
+      "active_stop": 352.1636363636364,
+      "take_profit": 359.512,
+      "stop_type": "supertrend",
+      "high_since_entry": null,
+      "signal_timeframe": "DAILY",
+      "signal_type": "cross",
+      "signal_date": "109",
+      "closed": false
     }
   },
   "reentries": {
