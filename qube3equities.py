@@ -17,7 +17,7 @@ colorama_init(autoreset=True)
 
 # --- USER SETTINGS ---
 ATR_PERIOD = 10
-ATR_MULTIPLIER = 1.0
+ATR_MULTIPLIER = 1.2
 SUPERTREND_TRAIL_PERIOD = 22
 SUPERTREND_TRAIL_MULTIPLIER = 2.0
 EXCEPTION_TICKERS = {"SQQQ","VXX","TLT","GLD","SOXS","SPXS","FAZ","SARK"}
@@ -332,7 +332,7 @@ def main():
         print(f"\n[Scan] Scanning {symbol} (DAILY bars)...")
         df_daily = cached_fetch_ohlcv(ib, symbol, 120, '1 day')
         if df_daily is not None:
-            dsigs = recent_smma_signals(df_daily, 9, 18, 14, label="DAILY")
+            dsigs = recent_smma_signals(df_daily, 9, 18, 7, label="DAILY")
             print(f"[Scan] {symbol}: Found {len(dsigs)} daily signals.")
             for s in dsigs:
                 score, rvol, momentum = get_momentum_rvol_score(df_daily)
@@ -347,7 +347,7 @@ def main():
         else:
             print(f"[Scan] {symbol}: No daily bar data, skipping.")
         print(f"[Scan] Scanning {symbol} (4H bars)...")
-        df_4h = cached_fetch_ohlcv(ib, symbol, 120, '4 hours')
+        df_4h = cached_fetch_ohlcv(ib, symbol, 360, '4 hours')
         if df_4h is not None:
             fsigs = recent_smma_signals(df_4h, 26, 150, 14, label="4H")
             print(f"[Scan] {symbol}: Found {len(fsigs)} 4H signals.")
