@@ -1,7 +1,7 @@
 # =============================================================================
-# Robust Interactive Brokers SMMA/ATR/Supertrend Trading Bot
+# QUBE3 SMMA/ATR/Supertrend Systematic EQUITIES 
 # With Dynamic Index-Based Trailing Stop Override
-# (Now displays historical signal-bar price AND current live price before entry)
+# 
 # =============================================================================
 
 import logging

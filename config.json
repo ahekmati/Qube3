@@ -1,14 +1,14 @@
 {
   "user_tickers": [
-    "TSLL", "TQQQ", "NUGT", "EEM", "SOXL", "IBIT", "ARKK", "QTUM", "SVXY",
-    "STX", "PLTR", "WDC", "NEM", "MU", "GEV", "ORCL", "WBD", "NRG", "GE", "APH",
-    "LRCX", "TPR", "HWM", "GLW", "CVS", "KLAC", "UBER", "IDXX", "DASH", "JBL",
-    "MPWR", "VST", "TEL", "WYNN",
-    "APP", "ZS", "FAST", "AVGO", "CEG", "MDB", "MELI", "ORLY", "TTWO", "NFLX",
-    "NVDA", "AMD", "PDD", "META", "CRWD", "AXON", "GOOGL", "GOOG",
-    "TDUP", "OPEN", "LEU", "IMRX", "AMPX", "CELC", "AEVA", "BE", "OPRX", "CMCL",
-    "AMLX", "FUBO", "PGEN", "MASS", "APPS", "MLYS", "SATS", "COMM", "KTOS",
-    "LCTX", "CDE", "LASR", "METC", "UUUU", "CPS", "SSO", "QQQ", "SPY", "APP", "SMCI", "APLD", "ILMN", "NBIS", "IONQ"
+   "AAPL", "AEVA", "AMD", "AMLX", "AMPX", "AMZN", "APP", "APLD", "APPS", "ARKK", "AVGO", "AXON", "BAP", "BBVA", "BE",
+    "BILI", "BSBR", "CANG", "CDE", "CEG", "CELC", "CIB", "CMCL", "COMM", "CPNG", "CPS", "CRWD", "CVS", "CZR", "DASH",
+    "DB", "EC", "EEM", "FAST", "FUBO", "GDS", "GE", "GEV", "GDXJ", "GH", "GLW", "GOOG", "GOOGL", "HWM", "IBIT", "IDXX",
+    "ILMN", "IMRX", "ING", "IONQ", "ITUB", "JBL", "JAZZ", "KLAC", "KTOS", "LASR", "LCTX", "LEU", "LRCX", "LYG", "MASS",
+    "MDB", "MELI", "META", "METC", "MLYS", "MPWR", "MSFT", "MU", "NBIS", "NEM", "NFLX", "NRG", "NUGT", "NU", "NVDA",
+    "NVS", "OPEN", "OPRX", "ORCL", "ORLY", "PAGS", "PBR", "PDD", "PGEN", "PLTR", "PRGO", "QTUM", "QGEN", "QQQ", "RIO",
+    "RPRX", "SATS", "SCCO", "SCPH", "SHEL", "SMCI", "SMFG", "SOXL", "SPY", "SSL", "SSO", "STX", "SVXY", "STM",
+    "TDUP", "TEL", "TEVA", "TME", "TPR", "TSLA", "TSLL", "TTWO", "TV", "UBER", "UUUU", "VALE", "VIPS", "VST", "WBD",
+    "WDC", "WYNN", "YPF", "ZS"
   ],
   "max_stocks": 5,
   "state_file": "state.json",

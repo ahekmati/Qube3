@@ -165,13 +165,7 @@ def main():
     max_alloc_val = account_bal * MAX_ALLOC
 
     tickers = [
-        "AAPL", "NVDA", "TSLA", "AMZN", "MSFT", "TSLL", "TQQQ", "NUGT", "EEM", "SOXL", "IBIT", "ARKK", "QTUM", "SVXY",
-        "STX", "PLTR", "WDC", "NEM", "MU", "GEV", "ORCL", "WBD", "NRG", "GE", "APH", "LRCX", "TPR", "HWM", "GLW",
-        "CVS", "KLAC", "UBER", "IDXX", "DASH", "JBL", "MPWR", "VST", "TEL", "WYNN", "APP", "ZS", "FAST", "AVGO", 
-        "CEG", "MDB", "MELI", "ORLY", "TTWO", "NFLX", "NVDA", "AMD", "PDD", "META", "CRWD", "AXON", "GOOGL", "GOOG",
-        "TDUP", "OPEN", "LEU", "IMRX", "AMPX", "CELC", "AEVA", "BE", "OPRX", "CMCL", "AMLX", "FUBO", "PGEN", "MASS",
-        "APPS", "MLYS", "SATS", "COMM", "KTOS", "LCTX", "CDE", "LASR", "METC", "UUUU", "CPS", "SSO", "QQQ", "SPY",
-        "APP", "SMCI", "APLD", "ILMN", "NBIS", "IONQ"
+           "IBIT"
     ]
     exchanges = ['ARCA', 'NASDAQ', 'SMART']
     lookback = '180 D'
