@@ -1,7 +1,7 @@
 # =============================================================================
-# QUBE3 SMMA/ATR/Supertrend Systematic EQUITIES 
+# QUBE3 Systematic EQUITIES 
 # With Dynamic Index-Based Trailing Stop Override
-# Composite Weighted Ranking, Fast Pickle Data Caching, Green Price Print
+# Composite Weighted Ranking, Fast Pickle Data Caching
 # =============================================================================
 
 import logging
