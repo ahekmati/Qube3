@@ -37,3 +37,6 @@ dist/
 *.log
 .venv/
 __pycache__/
+
+
+coinbase_api_key.json
