@@ -98,7 +98,7 @@ def find_best_ma_combo_binance(symbol, candidate_types, candidate_pairs, duratio
 
 # ---------- Main -------------
 def main():
-    symbol = "SOLUSDT"
+    symbol = "ETHUSDT"
     candidate_types = ['SMA', 'EMA', 'WMA', 'SMMA']
     candidate_pairs = [(9,18), (13,31), (21,50), (26,150), (10,20), (5,14)]
     print(f"\nAnalyzing {symbol} ...")
