@@ -1,3 +1,21 @@
+# =============================================================================
+# QUBE3 Systematic Options Trading Script
+#
+# - Prompts user to specify tickers and custom SMMA settings for technical analysis.
+# - Identifies recent SMMA crossover signals from historical data.
+# - Calculates average days from signal to high for option expiry targeting.
+# - Automates entry of ATM call options with bracket orders (stop loss/profit target).
+# - Monitors and logs open trades; upgrades stop-loss to breakeven if price doubles.
+# - Notifies on max hold duration; supports automatic closing of expired trades.
+#
+# Systematic signals and bracket order logic streamline directional options entry and risk management.
+# =============================================================================
+
+
+
+
+
+
 from ib_insync import IB, Stock, Option, util, Order
 import numpy as np
 import pandas as pd

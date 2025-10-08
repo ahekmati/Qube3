@@ -1,7 +1,15 @@
 # =============================================================================
-# QUBE3 SMMA/ATR/Supertrend Systematic EQUITIES
-# With Dynamic Index-Based Trailing Stop Override
+# QUBE3 Systematic Equities Options Trading Script
+#
+# Implements a SMMA/ATR/Supertrend entry and trailing stop system for swing trading ETFs/stocks.
+# - Scans a preset ticker list for momentum signals using technical indicators.
+# - Automatically sizes trades, places entries, and manages dynamic trailing stops.
+# - Raises stops defensively if the SPY ETF becomes bearish.
+# - Tracks position state, cleans up orphan stops, and syncs with IBKR account.
+#
+# Options trading relevance: signals and risk management logic can inform options entry, overlays, or hedging.
 # =============================================================================
+
 
 import pandas as pd
 import numpy as np

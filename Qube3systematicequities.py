@@ -1,8 +1,16 @@
 # =============================================================================
-# QUBE3 Systematic EQUITIES 
-# With Dynamic Index-Based Trailing Stop Override
-# Composite Weighted Ranking, Fast Pickle Data Caching
+# QUBE3 Systematic Equities Trading Script
+#
+# - Scans a custom ticker list for SMMA cross and momentum signals on multiple timeframes.
+# - Uses a composite score (momentum, RVOL, age) to rank top trades per symbol.
+# - Rapid pickle caching of OHLCV data for efficiency.
+# - Auto-sizes trades, places entries, and manages dynamic trailing stops.
+# - Stops are tightened for all positions if the SPY index is bearish.
+# - Tracks and syncs state with IBKR account, cleans up orphan stops, and logs all trades.
+#
+# 
 # =============================================================================
+
 
 import logging
 import json
@@ -12,6 +20,7 @@ import os
 from datetime import datetime
 from ib_insync import IB, Stock, util, Order
 from colorama import Fore, Style, init as colorama_init
+from pandas import to_datetime
 
 colorama_init(autoreset=True)
 
@@ -22,7 +31,7 @@ SUPERTREND_TRAIL_PERIOD = 22
 SUPERTREND_TRAIL_MULTIPLIER = 2.0
 EXCEPTION_TICKERS = {"SQQQ","VXX","TLT","GLD","SOXS","SPXS","FAZ","SARK"}
 MAX_ALLOC = 0.15
-MAX_POSITIONS = 5
+MAX_POSITIONS = 10
 DEF_SWING_WINDOW = 10
 DEFENSE_STOP_PCT = 0.02
 CACHE_DAYS = 2
@@ -386,24 +395,47 @@ def main():
             print(f"[Scan] {symbol}: No/missing 4-Hour combo.")
 
     # Only pick the top signal for each ticker (no duplicates!)
-    qualified_sorted = sorted(qualified, key=lambda x: x['score'], reverse=True)
-    top_unique = []
-    seen_symbols = set()
+        qualified_sorted = sorted(qualified, key=lambda x: x['score'], reverse=True)
+    print("\n[Debug] All filter-qualified tickers before 10% price filter:")
+    print("Rank | Symbol | Score      | Signal Px |")
+    print("-----|--------|------------|-----------|")
+    for z, q in enumerate(qualified_sorted, 1):
+        print(f"{z:>4} | {q['symbol']:<6} | {q['score']:>10.4f} | {q['price']:>9.2f}")
+
+        top_unique = []
+        seen_symbols = set()
+
     for q in qualified_sorted:
         sym = q["symbol"]
+        live_px = get_underlying_price(ib, Stock(sym, 'SMART', 'USD'))
+        if live_px is not None and live_px > q['price'] * 1.10:
+            print(Fore.RED + f"[SKIP] {sym}: Current price (${live_px:.2f}) >10% above signal price (${q['price']:.2f}), not recommending." + Style.RESET_ALL)
+            continue
         if sym not in seen_symbols:
-            top_unique.append(q)
+            top_unique.append({**q, "live_px": live_px})
             seen_symbols.add(sym)
             if len(top_unique) == MAX_POSITIONS:
                 break
+
+
+    print(f"Qualified/Actionable Candidates: {len(top_unique)} / Requested: {MAX_POSITIONS}")
+    if len(top_unique) < MAX_POSITIONS:
+        print("Warning: Fewer than 5 actionable signals found. Try increasing your candidate pool or reviewing filter criteria.")
 
     print("\n[Result] Top signals (SMMA cross/reentry for all timeframes, unique tickers):")
     print("Idx | Symbol  | Timeframe | Type    | Date                | Price    | RVOL    | MOM")
     print("----|---------|-----------|---------|---------------------|----------|---------|---------")
     for i, q in enumerate(top_unique):
-        print(f"{i+1:>3} | {q['symbol']:<7} | {q['timeframe']:<9} | {q['signal_type']:<7} | "
-              f"{q['signal_date']:<19} | {q['price']:<8.2f} | {q['rvol']:<6.2f} | {q['momentum']:<6.3f}")
+        try:
+        # Convert date to human-readable format, fallback if conversion fails
+            nice_date = to_datetime(q['signal_date']).strftime('%Y-%m-%d %H:%M')
+        except Exception:
+            nice_date = str(q['signal_date'])
+    print(f"{i+1:>3} | {q['symbol']:<7} | {q['timeframe']:<9} | {q['signal_type']:<7} | "
+          f"{nice_date:<19} | {q['price']:<8.2f} | {q['rvol']:<6.2f} | {q['momentum']:<6.3f}")
 
+
+    # You don't need another 10% check in the entry loop.
     for q in top_unique:
         symbol = q['symbol']
         if symbol in state.data['positions'] or symbol in {p.contract.symbol for p in ib.positions()}:
@@ -415,13 +447,7 @@ def main():
             continue
         df = q["df"]
         alloc_pct = size * q["price"] / account_bal * 100
-
-        live_px = get_underlying_price(ib, Stock(symbol, 'SMART', 'USD'))
-        print(Fore.GREEN + f"[Signal Price Compare] Signal bar close: ${q['price']:.2f} | Current live price: ${live_px:.2f}" + Style.RESET_ALL)
-
-        if live_px is not None and live_px > q['price'] * 1.10:
-            print(Fore.RED + f"[SKIP] {symbol}: Current price (${live_px:.2f}) is >10% above signal price (${q['price']:.2f}), skipping." + Style.RESET_ALL)
-            continue
+        # live_px is available in q['live_px'] if needed
 
         prompt = f"\n[Prompt] {symbol}: Buy {size} at ${q['price']:.2f} ({alloc_pct:.1f}% capital, stop after fill)?. Confirm (y/n): "
         user_input = input(prompt).strip().lower()
@@ -453,6 +479,7 @@ def main():
             "signal_date":q['signal_date'],
             "closed":False
         }
+
     apply_index_defense(ib, state, spy_bearish)
     update_trailing_stops(ib, state)
     state.save()
