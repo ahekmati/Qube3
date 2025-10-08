@@ -419,6 +419,10 @@ def main():
         live_px = get_underlying_price(ib, Stock(symbol, 'SMART', 'USD'))
         print(Fore.GREEN + f"[Signal Price Compare] Signal bar close: ${q['price']:.2f} | Current live price: ${live_px:.2f}" + Style.RESET_ALL)
 
+        if live_px is not None and live_px > q['price'] * 1.10:
+            print(Fore.RED + f"[SKIP] {symbol}: Current price (${live_px:.2f}) is >10% above signal price (${q['price']:.2f}), skipping." + Style.RESET_ALL)
+            continue
+
         prompt = f"\n[Prompt] {symbol}: Buy {size} at ${q['price']:.2f} ({alloc_pct:.1f}% capital, stop after fill)?. Confirm (y/n): "
         user_input = input(prompt).strip().lower()
         if user_input != 'y':

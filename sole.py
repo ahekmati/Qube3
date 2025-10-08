@@ -5,6 +5,22 @@ from ta.volatility import AverageTrueRange
 from coinbase.rest import RESTClient
 import uuid
 from decimal import Decimal, ROUND_FLOOR, getcontext
+from colorama import init, Fore, Style
+init(autoreset=True)
+
+def print_green(msg):
+    print(f"{Fore.GREEN}{msg}{Style.RESET_ALL}")
+def print_red(msg):
+    print(f"{Fore.RED}{msg}{Style.RESET_ALL}")
+
+
+import pandas as pd
+from datetime import datetime, timedelta, UTC
+from ta.trend import EMAIndicator
+from ta.volatility import AverageTrueRange
+from coinbase.rest import RESTClient
+import uuid
+from decimal import Decimal, ROUND_FLOOR, getcontext
 
 getcontext().prec = 28
 client = RESTClient(key_file="coinbase_api_key.json")
@@ -120,11 +136,11 @@ def get_quote_available(product_id):
                 return 0.0
     return 0.0
 
-def print_balances(product_id):
+def print_green_balances(product_id):
     base, quote = product_id.split("-")
     base_total = get_open_base_size(product_id)
     quote_total = get_quote_available(product_id)
-    print(f"[BAL] {product_id}: {base} (available+hold): {base_total}, {quote} (available): {quote_total}")
+    print_green(f"[BAL] {product_id}: {base} (available+hold): {base_total}, {quote} (available): {quote_total}")
 
 def fetch_ohlcv(product_id, granularity, limit):
     end_unix = last_completed_day_end()
@@ -229,11 +245,11 @@ def cancel_active_stops(product_id):
                 to_cancel.append(o.get("order_id") if isinstance(o, dict) else getattr(o, "order_id", ""))
     for oid in to_cancel:
         if oid:
-            print(f"[STOP] Canceling existing stop-loss order {oid} on {product_id}")
+            print_green(f"[STOP] Canceling existing stop-loss order {oid} on {product_id}")
             try:
                 client.cancel_order(order_id=oid)
             except Exception as e:
-                print(f"[ERROR] Failed to cancel stop-loss {oid}: {e}")
+                print_green(f"[ERROR] Failed to cancel stop-loss {oid}: {e}")
 
 def place_stop_limit_sell(product_id, stop_price_dec: Decimal, limit_price_dec: Decimal or None = None, tag=STOP_ORDER_TAG):
     stop_p = round_price_to_tick(stop_price_dec)
@@ -241,7 +257,7 @@ def place_stop_limit_sell(product_id, stop_price_dec: Decimal, limit_price_dec: 
     avail = get_available_base_precise(product_id)
     size_p = floor_size_to_step(avail)
     if size_p <= 0:
-        print("[SL] No available to place stop loss.")
+        print_green("[SL] Not available to place stop loss.")
         return
     cid = client_id(tag)
     order_cfg = {
@@ -258,7 +274,7 @@ def place_stop_limit_sell(product_id, stop_price_dec: Decimal, limit_price_dec: 
         side="SELL",
         order_configuration=order_cfg
     )
-    print(f"[STOP] 📉 Stop-limit sell placed @ stop {fmt_price(stop_p)} / limit {fmt_price(limit_p)} for {fmt_size(size_p)}: {resp}")
+    print_green(f"[STOP] 📉 Stop-limit sell placed @ stop {fmt_price(stop_p)} / limit {fmt_price(limit_p)} for {fmt_size(size_p)}: {resp}")
     return resp
 
 def place_take_profit_limit(product_id, tp_price_dec: Decimal, tag="tp_limit"):
@@ -266,7 +282,7 @@ def place_take_profit_limit(product_id, tp_price_dec: Decimal, tag="tp_limit"):
     avail = get_available_base_precise(product_id)
     size_p = floor_size_to_step(avail)
     if size_p <= 0:
-        print("[TP] No available to place TP.")
+        print_green("[TP] Not available to place TP.")
         return
     cid = client_id(tag)
     order_cfg = {
@@ -281,7 +297,7 @@ def place_take_profit_limit(product_id, tp_price_dec: Decimal, tag="tp_limit"):
         side="SELL",
         order_configuration=order_cfg
     )
-    print(f"[TP] 🎯 Take-profit limit placed @ {fmt_price(tp_p)} for {fmt_size(size_p)}: {resp}")
+    print_green(f"[TP] 🎯 Take-profit limit placed @ {fmt_price(tp_p)} for {fmt_size(size_p)}: {resp}")
     return resp
 
 def ensure_protection_when_open(product_id, df):
@@ -293,16 +309,15 @@ def ensure_protection_when_open(product_id, df):
     atr_f = df["atr"].iloc[-1]
     if not pd.isna(atr_f):
         tp_now = Decimal(str(last_close_f)) + Decimal(str(ATR_MULT)) * Decimal(str(atr_f))
-        print(f"[LEVELS] Ensuring TP @ {tp_now:.4f}")
+        print_green(f"[LEVELS] Ensuring TP @ {tp_now:.4f}")
         place_take_profit_limit(product_id, tp_now)
-
 
 def list_open_orders(product_id):
     try:
         o = client.list_orders(product_id=product_id, order_status="OPEN")
         return o.get("orders") if isinstance(o, dict) else getattr(o, "orders", [])
     except Exception as e:
-        print(f"[WARN] list_orders OPEN error: {e}")
+        print_green(f"[WARN] list_orders OPEN error: {e}")
         return []
 
 def get_position_avg_entry(product_id, max_fills=100):
@@ -315,10 +330,10 @@ def get_position_avg_entry(product_id, max_fills=100):
             fills = client.fills(product_id=product_id, limit=max_fills)
             fills_list = fills.get("fills") if isinstance(fills, dict) else getattr(fills, "fills", [])
         except Exception as e:
-            print(f"[WARN] fills error: {e}")
+            print_green(f"[WARN] fills error: {e}")
             return None
     except Exception as e:
-        print(f"[WARN] get_fills error: {e}")
+        print_green(f"[WARN] get_fills error: {e}")
         return None
     if not fills_list:
         return None
@@ -342,7 +357,7 @@ def place_market_buy_with_bracket(product_id, quote_size, tp_limit_price, sl_tri
     cid = client_id("buy")
     tp_limit_price = round_price_to_tick(Decimal(str(tp_limit_price)))
     sl_trigger_price = round_price_to_tick(Decimal(str(sl_trigger_price)))
-    print(f"[LEVELS] TP(limit): {tp_limit_price} | SL(trigger): {sl_trigger_price}")
+    print_green(f"[LEVELS] TP(limit): {tp_limit_price} | SL(trigger): {sl_trigger_price}")
     resp = client.create_order(
         client_order_id=cid,
         product_id=product_id,
@@ -360,7 +375,7 @@ def place_market_buy_with_bracket(product_id, quote_size, tp_limit_price, sl_tri
             }
         }
     )
-    print(f"[TRADE] 🟢 Market buy with TP/SL bracket placed: {resp}")
+    print_green(f"[TRADE] 🟢 Market buy with TP/SL bracket placed: {resp}")
     return resp
 
 def enter_trade(product_id, df):
@@ -368,7 +383,7 @@ def enter_trade(product_id, df):
     ema18 = Decimal(str(df["ema18"].iloc[-1]))
     atr_val = df["atr"].iloc[-1]
     if pd.isna(atr_val):
-        print("[ERROR] ❌ ATR not available; need more history.")
+        print_green("[ERROR] ❌ ATR not available; need more history.")
         return
     atr = Decimal(str(atr_val))
     sl_trigger = ema18 - Decimal(str(STOP_OFFSET))
@@ -377,9 +392,9 @@ def enter_trade(product_id, df):
     quote_avail = get_quote_available(product_id)
     fee_buffer = buy_quote * 0.002
     if quote_avail < buy_quote + fee_buffer:
-        print(f"[ERROR] ❌ Insufficient quote balance. Need ~{buy_quote+fee_buffer:.2f}, available {quote_avail:.2f}.")
+        print_green(f"[ERROR] ❌ Insufficient quote balance. Need ~{buy_quote+fee_buffer:.2f}, available {quote_avail:.2f}.")
         return
-    print(f"[TRADE] 🟢 Buying ~{buy_quote:.2f} USDC of {product_id.split('-')[0]} with TP {float(tp_limit):.4f} and SL trigger {float(sl_trigger):.4f}")
+    print_green(f"[TRADE] 🟢 Buying ~{buy_quote:.2f} USDC of {product_id.split('-')[0]} with TP {float(tp_limit):.4f} and SL trigger {float(sl_trigger):.4f}")
     order = place_market_buy_with_bracket(
         product_id=product_id,
         quote_size=buy_quote,
@@ -393,47 +408,70 @@ def enter_trade(product_id, df):
         ok = True
     if not ok:
         err = order.get("error_response") if isinstance(order, dict) else getattr(order, "error_response", None)
-        print(f"[ERROR] ❌ Buy+Bracket failed: {err}")
+        print_green(f"[ERROR] ❌ Buy+Bracket failed: {err}")
         return
 
 def main():
     for product_id in PRODUCT_IDS:
         maybe_load_increments(product_id)
-        print(f"[RUN] {product_id} at {datetime.now(UTC).isoformat().replace('+00:00', 'Z')}")
-        print_balances(product_id)
+        print_green(f"[RUN] {product_id} at {datetime.now(UTC).isoformat().replace('+00:00', 'Z')}")
+        print_green_balances(product_id)
         df = fetch_ohlcv(product_id, GRANULARITY, CANDLE_COUNT)
         df = compute_indicators(df)
-        if not df["atr"].isna().iloc[-1]:
-            last_close = df["close"].iloc[-1]
-            atr_now = df["atr"].iloc[-1]
-            tp_now = last_close + ATR_MULT * atr_now
-            print(f"[LEVELS] {product_id} ATR TP(calc): {tp_now:.4f} (close {last_close:.4f} + {ATR_MULT} × ATR {atr_now:.4f})")
-        sl_now = df["ema18"].iloc[-1] - STOP_OFFSET
-        print(f"[LEVELS] {product_id} SL(trigger): {sl_now:.4f} (EMA18 {df['ema18'].iloc[-1]:.4f} − {STOP_OFFSET})")
+
         base_pos = get_open_base_size(product_id)
-        crossed = primary_cross_signal(df)
-        reenter = reentry_signal(df)
-        if base_pos > 0.0:
-            print(f"[INFO] 📌 {product_id} position is currently OPEN.")
-            ensure_protection_when_open(product_id, df)
+        if base_pos <= 0:
+            print_green(f"[INFO] No open position for {product_id} (skipping).")
             continue
-        if crossed:
-            print(f"[SIGNAL] {product_id} Primary EMA 9/18 bullish crossover.")
-            user_input = input(f"🚨 {product_id} 9/18 bullish crossover detected. Enter trade with ATR TP? (yes/no): ").strip().lower()
-            if user_input == "yes":
-                enter_trade(product_id, df)
+
+        open_orders = list_open_orders(product_id)
+        open_stops = [
+            o for o in open_orders
+            if getattr(o, "side", "").upper() == "SELL"
+            and isinstance(getattr(o, "order_configuration", None), dict)
+            and "stop_limit_stop_limit_gtc" in getattr(o, "order_configuration", {})
+        ]
+
+        last_close = Decimal(str(df["close"].iloc[-1]))
+        atr = Decimal(str(df["atr"].iloc[-1]))
+        tp_price = last_close + Decimal(str(ATR_MULT)) * atr if not pd.isna(atr) else None
+
+        print_green(f"[TP CHECK] {product_id}: Target Profit = {tp_price:.4f}, Current Price = {last_close:.4f}")
+
+        if open_stops and tp_price and last_close >= tp_price:
+            print_green(f"[TP MET] TP met, closing trade at market and cancelling stop.")
+            for stop_order in open_stops:
+                order_id = getattr(stop_order, "order_id", None)
+                if order_id:
+                    print_green(f"[OCO] Cancelling stop-order {order_id}")
+                    client.cancel_order(order_id=order_id)
+            avail = get_available_base_precise(product_id)
+            if avail > Decimal("0"):
+                cid = client_id("oco_tp_sell")
+                resp = client.create_order(
+                    client_order_id=cid,
+                    product_id=product_id,
+                    side="SELL",
+                    order_configuration={
+                        "market_market_ioc": {
+                            "base_size": fmt_size(avail)
+                        }
+                    }
+                )
+                print_green(f"[OCO] Market-sell TP completed: {resp}")
             else:
-                print(f"[INFO] ❌ {product_id} Trade skipped by user.")
-            continue
-        if reenter:
-            print(f"[SIGNAL] {product_id} Re-entry signal met.")
-            user_input = input(f"🚨 {product_id} Re-entry signal detected. Enter trade with ATR TP? (yes/no): ").strip().lower()
-            if user_input == "yes":
-                enter_trade(product_id, df)
+                print_green(f"[OCO] No base available after cancel, cannot TP.")
+        else:
+            print_red("target profit not met")
+            if open_stops:
+                print_green("[TP NOT MET] Holding stop-limit order active.")
             else:
-                print(f"[INFO] ❌ {product_id} Re-entry skipped by user.")
-            continue
-        print(f"[INFO] No entry or re-entry signal for {product_id}.")
+                print_green(f"[STEP] No stop found for {product_id}. Placing stop-limit order.")
+                ema18 = Decimal(str(df["ema18"].iloc[-1]))
+                sl_trigger = ema18 - Decimal(str(STOP_OFFSET))
+                place_stop_limit_sell(product_id, sl_trigger)
 
 if __name__ == "__main__":
     main()
+
+
