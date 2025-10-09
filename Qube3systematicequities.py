@@ -157,14 +157,17 @@ def wait_for_fill(ib, trade):
     print("[Order] Waiting for buy order fill...")
     for _ in range(60):
         ib.sleep(0.5)
-        if trade.orderStatus.status=="Filled":
-            print(f"[Order] Filled at {trade.avgFillPrice} for {trade.filled} shares.")
+        if trade.orderStatus.status == "Filled":
+            fill_price = getattr(trade.orderStatus, "avgFillPrice", None)
+            filled_qty = getattr(trade, "filled", None)
+            print(f"[Order] Filled at {fill_price} for {filled_qty} shares.")
             return True
-        elif trade.orderStatus.status in ('Cancelled','Inactive'):
+        elif trade.orderStatus.status in ('Cancelled', 'Inactive'):
             print(f"[Order] Order status: {trade.orderStatus.status} - Canceled or Inactive.")
             return False
     print("[Order] Timeout/no fill detected.")
     return False
+
 
 def place_entry_order(ib, symbol, shares, entry_px, stop_px):
     contract = Stock(symbol, 'SMART', 'USD')
