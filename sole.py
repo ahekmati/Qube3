@@ -6,25 +6,11 @@ from coinbase.rest import RESTClient
 import uuid
 from decimal import Decimal, ROUND_FLOOR, getcontext
 from colorama import init, Fore, Style
+
 init(autoreset=True)
-
-def print_green(msg):
-    print(f"{Fore.GREEN}{msg}{Style.RESET_ALL}")
-def print_red(msg):
-    print(f"{Fore.RED}{msg}{Style.RESET_ALL}")
-
-
-import pandas as pd
-from datetime import datetime, timedelta, UTC
-from ta.trend import EMAIndicator
-from ta.volatility import AverageTrueRange
-from coinbase.rest import RESTClient
-import uuid
-from decimal import Decimal, ROUND_FLOOR, getcontext
-
 getcontext().prec = 28
-client = RESTClient(key_file="coinbase_api_key.json")
 
+client = RESTClient(key_file="coinbase_api_key.json")
 PRODUCT_IDS = ["SOL-USDC", "ETH-USDC"]
 GRANULARITY = "ONE_DAY"
 CANDLE_COUNT = 240
@@ -36,6 +22,11 @@ STOP_ORDER_TAG = "ema_stop"
 QUOTE_TICK = Decimal("0.01")
 BASE_STEP  = Decimal("0.0001")
 ONE_DAYSEC = 24 * 3600
+
+def print_green(msg):
+    print(f"{Fore.GREEN}{msg}{Style.RESET_ALL}")
+def print_red(msg):
+    print(f"{Fore.RED}{msg}{Style.RESET_ALL}")
 
 def client_id(prefix):
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
@@ -93,10 +84,8 @@ def get_open_base_size(product_id):
         if curr == base:
             avail = a.get("available_balance") if isinstance(a, dict) else getattr(a, "available_balance", None)
             hold = a.get("hold") if isinstance(a, dict) else getattr(a, "hold", None)
-            avail_val = avail.get("value") if isinstance(avail, dict) else (
-                avail if isinstance(avail, (int, float, str)) else 0.0)
-            hold_val = hold.get("value") if isinstance(hold, dict) else (
-                hold if isinstance(hold, (int, float, str)) else 0.0)
+            avail_val = avail.get("value") if isinstance(avail, dict) else (avail if isinstance(avail, (int, float, str)) else 0.0)
+            hold_val = hold.get("value") if isinstance(hold, dict) else (hold if isinstance(hold, (int, float, str)) else 0.0)
             try:
                 avail_f = float(avail_val)
             except Exception:
@@ -114,8 +103,7 @@ def get_available_base_precise(product_id) -> Decimal:
         curr = a.get("currency") if isinstance(a, dict) else getattr(a, "currency", None)
         if curr == base:
             avail = a.get("available_balance") if isinstance(a, dict) else getattr(a, "available_balance", None)
-            avail_val = avail.get("value") if isinstance(avail, dict) else (
-                avail if isinstance(avail, (int, float, str)) else 0.0)
+            avail_val = avail.get("value") if isinstance(avail, dict) else (avail if isinstance(avail, (int, float, str)) else 0.0)
             try:
                 avail_d = Decimal(str(avail_val))
             except Exception:
@@ -184,11 +172,11 @@ def fetch_ohlcv(product_id, granularity, limit):
         return getattr(r, k, None)
     clean = []
     for r in rows:
-        start_raw = get_field(r, "start"); low_raw=get_field(r,"low"); high_raw=get_field(r,"high")
-        open_raw = get_field(r,"open"); close_raw = get_field(r,"close"); vol_raw = get_field(r,"volume")
+        start_raw = get_field(r, "start"); low_raw = get_field(r, "low"); high_raw = get_field(r, "high")
+        open_raw = get_field(r, "open"); close_raw = get_field(r, "close"); vol_raw = get_field(r, "volume")
         if all(x is None for x in (start_raw, low_raw, high_raw, open_raw, close_raw, vol_raw)):
             try:
-                start_raw=r[0]; low_raw=r[1]; high_raw=r[2]; open_raw=r[3]; close_raw=r[4]; vol_raw=r[5]
+                start_raw = r[0]; low_raw = r[1]; high_raw = r[2]; open_raw = r[3]; close_raw = r[4]; vol_raw = r[5]
             except Exception:
                 continue
         start_val = to_int_s(start_raw)
@@ -207,7 +195,7 @@ def fetch_ohlcv(product_id, granularity, limit):
     df = pd.DataFrame(clean)
     df["timestamp"] = pd.to_datetime(df["start"].astype(int), unit="s", utc=True)
     df = df.sort_values("timestamp").reset_index(drop=True)
-    for c in ["open","high","low","close"]:
+    for c in ["open", "high", "low", "close"]:
         df[c] = df[c].astype(float)
     return df
 
@@ -217,23 +205,16 @@ def compute_indicators(df):
     df["atr"]   = AverageTrueRange(high=df["high"], low=df["low"], close=df["close"], window=ATR_WINDOW).average_true_range()
     return df
 
-def primary_cross_signal(df):
-    prev = df.iloc[-2]; last = df.iloc[-1]
-    return (last["ema9"] > last["ema18"]) and (prev["ema9"] <= prev["ema18"])
-
-def reentry_signal(df):
-    last = df.iloc[-1]
-    if not (last["ema9"] > last["ema18"]):
-        return False
-    lookback = min(30, len(df) - 2)
-    if lookback <= 0:
-        return False
-    recent = df.tail(lookback + 1)
-    below = recent["close"] < recent["ema18"]
-    dips = below.iloc[:-1][below.iloc[:-1]].index
-    if len(dips) == 0:
-        return False
-    return last["close"] > last["ema18"]
+def find_recent_ema_crossover(df, fast=9, slow=18, lookback=5):
+    df['ema_fast'] = EMAIndicator(df['close'], window=fast).ema_indicator()
+    df['ema_slow'] = EMAIndicator(df['close'], window=slow).ema_indicator()
+    cross_dates = []
+    for i in range(max(1, len(df)-lookback), len(df)):
+        prev = df.iloc[i-1]
+        curr = df.iloc[i]
+        if prev['ema_fast'] <= prev['ema_slow'] and curr['ema_fast'] > curr['ema_slow']:
+            cross_dates.append(curr['timestamp'])
+    return cross_dates
 
 def cancel_active_stops(product_id):
     to_cancel = []
@@ -413,15 +394,30 @@ def enter_trade(product_id, df):
 
 def main():
     for product_id in PRODUCT_IDS:
+        print_green(f"[CHECK] {product_id} for 9/18 EMA crossover on daily timeframe (last 5 days)")
         maybe_load_increments(product_id)
-        print_green(f"[RUN] {product_id} at {datetime.now(UTC).isoformat().replace('+00:00', 'Z')}")
-        print_green_balances(product_id)
-        df = fetch_ohlcv(product_id, GRANULARITY, CANDLE_COUNT)
+        df = fetch_ohlcv(product_id, "ONE_DAY", CANDLE_COUNT)
         df = compute_indicators(df)
+
+        # Print signal status for last 5 days
+        cross_dates = find_recent_ema_crossover(df, fast=9, slow=18, lookback=5)
+        if cross_dates:
+            for dt in cross_dates:
+                print_green(f"[SIGNAL] 9/18 EMA crossover for {product_id} on {dt.strftime('%Y-%m-%d')}")
+        else:
+            print_red(f"[NO SIGNAL] No 9/18 EMA crossover found for {product_id} in the past 5 days.")
 
         base_pos = get_open_base_size(product_id)
         if base_pos <= 0:
-            print_green(f"[INFO] No open position for {product_id} (skipping).")
+            if cross_dates:
+                # Only enter if user confirms
+                ans = input(f"[PROMPT] Enter trade on {product_id} (y/n)? ").strip().lower()
+                if ans == "y":
+                    enter_trade(product_id, df)
+                else:
+                    print_green(f"[INFO] Skipping entry for {product_id}.")
+            else:
+                print_green(f"[INFO] No buy signal for {product_id} (skipping entry).")
             continue
 
         open_orders = list_open_orders(product_id)
@@ -473,5 +469,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
