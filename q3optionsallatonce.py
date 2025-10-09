@@ -1,3 +1,36 @@
+# =============================================================================
+# Systematic Options Momentum Trading Script
+#
+# Overview:
+# This script automates options trading using systematic momentum signals.
+# It connects to Interactive Brokers (IBKR) to fetch account data, OHLCV bars,
+# and live prices for a user-defined ticker list.
+#
+# Main Workflow:
+# - Loads settings, tickers, and best SMMA parameter combinations.
+# - Connects to IBKR API, retrieves the account balance for dynamic allocation.
+# - For each ticker:
+#     - Downloads recent price/volume data, using pickle cache for speed.
+#     - Calculates SMMA cross and momentum signals using custom indicator functions.
+#     - Ranks signals by momentum, RVOL, and age for trade selection.
+# - Applies a SPY regime filter (e.g., bearish SMMA cross blocks new longs).
+# - For qualified tickers:
+#     - Selects at-the-money or slightly out-of-the-money call options, targeting near-term expiries.
+#     - Sizes each trade so that no single trade exceeds 15% of total account capital.
+#     - Prompts for user approval; submits market order for options contract.
+#     - Logs all trades and updates persistent state for open positions.
+#
+# Features:
+# - Dynamic capital allocation based on current IBKR account value.
+# - Uses SMMA (Smoothed Moving Average) and Supertrend indicators for robust signal generation.
+# - Auto-selects options contracts nearest to desired expiry and strike.
+# - Maintains and saves position state for audit and recovery.
+# - Color-coded printouts and prompts using colorama for clarity.
+#
+# Intended for systematic options traders seeking robust swing/momentum entries
+# and disciplined trade management, with full logging, position tracking, and regime filtering.
+# =============================================================================
+
 import logging
 import json
 import pandas as pd

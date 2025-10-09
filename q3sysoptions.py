@@ -11,11 +11,6 @@
 # Systematic signals and bracket order logic streamline directional options entry and risk management.
 # =============================================================================
 
-
-
-
-
-
 from ib_insync import IB, Stock, Option, util, Order
 import numpy as np
 import pandas as pd

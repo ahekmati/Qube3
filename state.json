@@ -1,16 +1,6 @@
 {
   "_version": "4.0",
   "positions": {
-    "IBIT": {
-      "entry_price": 64.43,
-      "shares": 5,
-      "init_stop": 61.907198450857166,
-      "active_stop": 68.02590909090908,
-      "take_profit": 67.632,
-      "stop_type": "supertrend",
-      "cross_date": "119",
-      "high_since_entry": null
-    },
     "QGEN": {
       "entry_price": 46.98,
       "shares": 8,
@@ -31,17 +21,6 @@
       "signal_timeframe": "4H",
       "signal_type": "reentry",
       "signal_date": "788",
-      "closed": false
-    },
-    "FAST": {
-      "entry_price": 48.17,
-      "shares": 7,
-      "active_stop": 48.55954545454546,
-      "stop_type": "supertrend",
-      "high_since_entry": null,
-      "signal_timeframe": "DAILY",
-      "signal_type": "reentry",
-      "signal_date": "115",
       "closed": false
     },
     "SHEL": {

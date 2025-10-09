@@ -1,3 +1,36 @@
+# =============================================================================
+# Automated Daily EMA-Based Crypto Trading Script
+#
+# Overview:
+# This script systematically manages long trades for selected crypto pairs (SOL-USDC, ETH-USDC) using the Coinbase API,
+# with fixed risk sizing, bracket orders, and algorithmic stop and take profit management.
+#
+# Main Workflow:
+# - Initializes API connections, precision, and risk parameters.
+# - For each crypto pair:
+#     - Loads recent daily OHLCV data from Coinbase and computes technical indicators (EMA9, EMA18, ATR).
+#     - Detects 9/18 EMA bullish crossover on daily bars (last 5 days).
+#     - If signals found and no current position exists:
+#         - Prompts user to confirm entry.
+#         - Buys approximately $100 USDC value at market.
+#         - Automatically sets a bracket order (stop-limit and take-profit levels) using ATR and EMA-based logic.
+#     - If position is already open:
+#         - Monitors for take profit triggers and cancels stops/orders accordingly.
+#         - Ensures a stop-limit order is always present for downside protection.
+#     - All balances and order statuses print in color-coded terminal output for rapid review.
+#
+# Features:
+# - Fixed-risk position sizing and precise decimal handling for trade execution.
+# - Bracket order entry (stop loss and take profit) with automatic management.
+# - ATR-based trailing profit and EMA18 stop calculation for dynamic risk adjustment.
+# - Persistent account/position checks to optimally manage trades per session.
+# - Robust handling of API responses and order structure for Coinbase.
+# - Easy to extend for more symbols, timeframes, or risk models.
+#
+# Intended for algorithmic spot-traders seeking disciplined, systematic entries and exits,
+# with a terminal-oriented interface and integrated risk controls.
+# =============================================================================
+
 import pandas as pd
 from datetime import datetime, timedelta, UTC
 from ta.trend import EMAIndicator
