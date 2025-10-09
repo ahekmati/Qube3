@@ -28,16 +28,16 @@ from pandas import to_datetime
 colorama_init(autoreset=True)
 
 # --- USER SETTINGS ---
-ATR_PERIOD = 10
-ATR_MULTIPLIER = 1.2
+ATR_PERIOD = 22
+ATR_MULTIPLIER = 2
 SUPERTREND_TRAIL_PERIOD = 22
 SUPERTREND_TRAIL_MULTIPLIER = 2.0
 EXCEPTION_TICKERS = {"SQQQ","VXX","TLT","GLD","SOXS","SPXS","FAZ","SARK"}
 MAX_ALLOC = 0.15
 MAX_POSITIONS = 10
-DEF_SWING_WINDOW = 4
+DEF_SWING_WINDOW = 7
 DEFENSE_STOP_PCT = 0.02
-CACHE_DAYS = 2
+CACHE_DAYS = 3
 
 def smma(series, window):
     s = pd.Series(series)
@@ -385,7 +385,7 @@ def main():
         df_daily = cached_fetch_ohlcv(ib, symbol, 120, '1 day')
         if df_daily is not None and "Daily" in best:
             p = best["Daily"]
-            dsigs = recent_smma_signals(df_daily, p["fast"], p["slow"], 7, label="DAILY")
+            dsigs = recent_smma_signals(df_daily, p["fast"], p["slow"], 3, label="DAILY")
             print(f"[DEBUG] {symbol}: {len(dsigs)} daily signals found.")
             if dsigs: found_signal = True
             for s in dsigs:
@@ -405,7 +405,7 @@ def main():
         df_8h = cached_fetch_ohlcv(ib, symbol, 240, '8 hours')
         if df_8h is not None and "8-Hour" in best:
             p = best["8-Hour"]
-            esigs = recent_smma_signals(df_8h, p["fast"], p["slow"], 14, label="8H")
+            esigs = recent_smma_signals(df_8h, p["fast"], p["slow"], 5, label="8H")
             print(f"[DEBUG] {symbol}: {len(esigs)} 8h signals found.")
             if esigs: found_signal = True
             for s in esigs:
@@ -425,7 +425,7 @@ def main():
         df_4h = cached_fetch_ohlcv(ib, symbol, 360, '4 hours')
         if df_4h is not None and "4-Hour" in best:
             p = best["4-Hour"]
-            fsigs = recent_smma_signals(df_4h, p["fast"], p["slow"], 14, label="4H")
+            fsigs = recent_smma_signals(df_4h, p["fast"], p["slow"], 5, label="4H")
             print(f"[DEBUG] {symbol}: {len(fsigs)} 4h signals found.")
             if fsigs: found_signal = True
             for s in fsigs:
