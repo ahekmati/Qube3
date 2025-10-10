@@ -1,37 +1,23 @@
-# =============================================================================
-# QUBE3 Systematic Equities Trading Script
-#
-# - Scans a custom ticker list for SMMA cross and momentum signals on multiple timeframes.
-# - Uses a composite score (momentum, RVOL, age) to rank top trades per symbol.
-# - Rapid pickle caching of OHLCV data for efficiency.
-# - Auto-sizes trades, places entries, and manages dynamic trailing stops.
-# - Stops are tightened for all positions if the SPY index is bearish.
-# - Tracks and syncs state with IBKR account, cleans up orphan stops, and logs all trades.
-#
-# 
-# =============================================================================
-
 import sys
 import logging
 import json
 import pandas as pd
 import numpy as np
 import os
+import math
 from datetime import datetime
 from ib_insync import IB, Stock, util, Order
 from colorama import Fore, Style, init as colorama_init
 from pandas import to_datetime
 
-#sys.stdout = open("script_output.log", "w")
-#sys.stderr = sys.stdout
-
 colorama_init(autoreset=True)
 
 # --- USER SETTINGS ---
-ATR_PERIOD = 22
-ATR_MULTIPLIER = 2
-SUPERTREND_TRAIL_PERIOD = 22
-SUPERTREND_TRAIL_MULTIPLIER = 2.0
+MAIN_ATR_PERIOD = 44             # Less sensitive, for swing trading non-exceptions
+MAIN_ATR_MULTIPLIER = 2.5
+MAIN_STOP_BUFFER = 0.0025        # Place stop slightly below SMMA (0.25%)
+EXCEPTION_ATR_PERIOD = 12        # Fast/sensitive for momentum tickers
+EXCEPTION_ATR_MULTIPLIER = 1.6
 EXCEPTION_TICKERS = {"SQQQ","VXX","TLT","GLD","SOXS","SPXS","FAZ","SARK"}
 MAX_ALLOC = 0.15
 MAX_POSITIONS = 10
@@ -54,29 +40,6 @@ def atr(df, window=14):
     low_close = np.abs(df['low'] - df['close'].shift(1))
     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     return tr.rolling(window).mean()
-
-def supertrend(df, period=SUPERTREND_TRAIL_PERIOD, multiplier=SUPERTREND_TRAIL_MULTIPLIER):
-    df = df.copy()
-    atr_ = atr(df, period)
-    hl2 = (df['high'] + df['low']) / 2
-    final_upperband = hl2 + (multiplier * atr_)
-    final_lowerband = hl2 - (multiplier * atr_)
-    supertrend_vals = []
-    direction = []
-    for i in range(len(df)):
-        if i == 0:
-            supertrend_vals.append(final_lowerband.iloc[i])
-            direction.append("green")
-            continue
-        prev_st = supertrend_vals[-1]
-        if df['close'].iloc[i] > prev_st:
-            st = max(final_lowerband.iloc[i], prev_st)
-            direction.append("green")
-        else:
-            st = min(final_upperband.iloc[i], prev_st)
-            direction.append("red")
-        supertrend_vals.append(st)
-    return pd.Series(supertrend_vals, index=df.index), pd.Series(direction, index=df.index)
 
 def cached_fetch_ohlcv(ib, symbol, ndays, tf='1 day', cache_days=CACHE_DAYS):
     folder = 'data_cache'
@@ -150,6 +113,9 @@ def compute_signal_age(signal_date, today=None):
     return (today - signal_date).days
 
 def get_trade_size(available_cap, price, max_alloc=MAX_ALLOC):
+    if price is None or (isinstance(price, float) and np.isnan(price)):
+        print(f"[Alloc] Skipping trade: price is NaN or None.")
+        return 0
     if price > available_cap * max_alloc:
         print(f"[Alloc] Skipping: 1 share at ${price:.2f} > {max_alloc*100:.1f}% (${available_cap * max_alloc:.2f}) of capital.")
         return 0
@@ -170,7 +136,6 @@ def wait_for_fill(ib, trade):
             return False
     print("[Order] Timeout/no fill detected.")
     return False
-
 
 def place_entry_order(ib, symbol, shares, entry_px, stop_px):
     contract = Stock(symbol, 'SMART', 'USD')
@@ -233,7 +198,10 @@ def apply_index_defense(ib, state, spy_bearish):
             swing_low = df["low"].iloc[-DEF_SWING_WINDOW:].min()
             stop_pct = df["close"].iloc[-1] * (1 - DEFENSE_STOP_PCT)
             defensive_stop = max(swing_low, stop_pct)
-            if defensive_stop > pos.get('active_stop', -np.inf):
+            old_stop = pos.get('active_stop', -np.inf)
+            if old_stop is None or not isinstance(old_stop, (float, int)):
+                old_stop = -np.inf
+            if defensive_stop > old_stop:
                 print(f"[DEFENSE] {symbol}: Raising stop to defensive {defensive_stop:.2f} (swing_low={swing_low:.2f}, pct={stop_pct:.2f})")
                 contract = Stock(symbol, 'SMART', 'USD')
                 shares = pos['shares']
@@ -258,37 +226,54 @@ def update_trailing_stops(ib, state):
             continue
         print(f"[Stops] Checking {symbol} ...")
         try:
-            df = cached_fetch_ohlcv(ib, symbol, 30, '1 day')
+            df = cached_fetch_ohlcv(ib, symbol, 60, '1 day')
             shares = pos['shares']
             contract = Stock(symbol, 'SMART', 'USD')
             for trade in ib.trades():
-                if (trade.contract.symbol == symbol 
-                    and trade.order.action == 'SELL' 
-                    and trade.order.orderType == 'STP' 
+                if (trade.contract.symbol == symbol
+                    and trade.order.action == 'SELL'
+                    and trade.order.orderType == 'STP'
                     and trade.orderStatus.status in ('Submitted','PreSubmitted')):
+                    print(f"[Stops] Canceling open stop for {symbol}")
                     ib.cancelOrder(trade.order)
+
+            high_since_entry = pos.get("high_since_entry")
+            if high_since_entry is None or not isinstance(high_since_entry, (float, int)):
+                high_since_entry = pos.get("entry_price", df["close"].iloc[-1])
+
             if symbol in EXCEPTION_TICKERS:
-                atr_latest = float(atr(df, ATR_PERIOD).iloc[-1])
-                high_since_entry = pos.get("high_since_entry", pos["entry_price"])
+                atr_latest = float(atr(df, EXCEPTION_ATR_PERIOD).iloc[-1])
                 new_high = max(high_since_entry, df["close"].iloc[-1])
-                stop_price = new_high - ATR_MULTIPLIER * atr_latest
-                if stop_price > pos.get('active_stop', -np.inf):
-                    print(f"[Stops] ATR stop moved up for {symbol}: {stop_price:.2f}")
+                stop_price = new_high - EXCEPTION_ATR_MULTIPLIER * atr_latest
+                pos['high_since_entry'] = new_high
+                old_stop = pos.get('active_stop')
+                if old_stop is None or not isinstance(old_stop, (float, int)):
+                    old_stop = -np.inf
+                if stop_price > old_stop:
+                    print(f"[Stops] {symbol}: stop moved UP to {stop_price:.2f} (previous: {old_stop:.2f})")
                     stop = Order(action="SELL", orderType="STP", auxPrice=round(stop_price,2), totalQuantity=shares, tif="GTC")
                     ib.placeOrder(contract, stop)
                     pos['active_stop'] = stop_price
-                    pos['high_since_entry'] = new_high
+                else:
+                    print(f"[Stops] {symbol}: stop NOT moved (current: {old_stop:.2f}, calculated: {stop_price:.2f})")
             else:
-                st, direction = supertrend(df)
-                st_val = float(st.iloc[-1])
-                if direction.iloc[-1] == "green" and st_val < df['close'].iloc[-1]:
-                    if st_val > pos.get('active_stop', -np.inf):
-                        print(f"[Stops] Supertrend stop moved up for {symbol}: {st_val:.2f}")
-                        stop = Order(action="SELL", orderType="STP", auxPrice=round(st_val,2), totalQuantity=shares, tif="GTC")
-                        ib.placeOrder(contract, stop)
-                        pos['active_stop'] = st_val
+                atr_latest = float(atr(df, MAIN_ATR_PERIOD).iloc[-1])
+                new_high = max(high_since_entry, df["close"].iloc[-1])
+                stop_price = new_high - MAIN_ATR_MULTIPLIER * atr_latest
+                pos['high_since_entry'] = new_high
+                old_stop = pos.get('active_stop')
+                if old_stop is None or not isinstance(old_stop, (float, int)):
+                    old_stop = -np.inf
+                if stop_price > old_stop:
+                    print(f"[Stops] {symbol}: stop moved UP to {stop_price:.2f} (previous: {old_stop:.2f})")
+                    stop = Order(action="SELL", orderType="STP", auxPrice=round(stop_price,2), totalQuantity=shares, tif="GTC")
+                    ib.placeOrder(contract, stop)
+                    pos['active_stop'] = stop_price
+                else:
+                    print(f"[Stops] {symbol}: stop NOT moved (current: {old_stop:.2f}, calculated: {stop_price:.2f})")
         except Exception as e:
             print(f"[Stops] Error trailing stop for {symbol}: {e}")
+
 
 def get_underlying_price(ib, underlying):
     t = ib.reqMktData(underlying, '', False, False)
@@ -304,7 +289,6 @@ def composite_score(momentum, rvol, age):
 def main():
     with open('best_smma_combos.json') as f:
         best_smma = json.load(f)
-
     ib = IB()
     ib.connect('127.0.0.1', 4001, clientId=1)
     print("Retrieving account balance...")
@@ -321,21 +305,16 @@ def main():
         print(f"ERROR: Could not convert NetLiquidation to float ({nl[0]}): {e}")
         ib.disconnect()
         return
-
     config = json.load(open('config.json'))
     symbols = config['user_tickers']
-
-    main_group = set(symbols) - {"TQQQ", "SSO", "SOXL", "ARKK"}
-    special_group = set(symbols) & {"TQQQ", "SSO", "SOXL", "ARKK"}
+    main_group = set(symbols) - EXCEPTION_TICKERS
+    special_group = set(symbols) & EXCEPTION_TICKERS
     main_alloc_total = account_bal * 0.5
     special_alloc_total = account_bal * 0.5
     main_allocated = 0.0
     special_allocated = 0.0
-
     print(f"\n[INFO] Main group: {sorted(main_group)}")
-    print(f"[INFO] Special group: {sorted(special_group)}")
-
-    # Track current open positions and their value
+    print(f"[INFO] Exception/Momentum group: {sorted(special_group)}")
     positions = list(ib.positions())
     ib_pos_symbols = {p.contract.symbol for p in positions}
     print(f"\n[INFO] IBKR open positions: {sorted(ib_pos_symbols)}")
@@ -350,11 +329,9 @@ def main():
             special_allocated += market_val
         elif sym in main_group:
             main_allocated += market_val
-
     print(f"\nACCOUNT VALUE: ${account_bal:,.2f}")
-    print(f"Special Ticker Group Allocation: Used ${special_allocated:,.2f} / Allowed ${special_alloc_total:,.2f} | Available ${special_alloc_total-special_allocated:,.2f}")
-    print(f"Main Ticker Group Allocation:    Used ${main_allocated:,.2f} / Allowed ${main_alloc_total:,.2f} | Available ${main_alloc_total-main_allocated:,.2f}\n")
-
+    print(f"Exception Group Allocation: Used ${special_allocated:,.2f} / Allowed ${special_alloc_total:,.2f} | Available ${special_alloc_total-special_allocated:,.2f}")
+    print(f"Main Group Allocation:      Used ${main_allocated:,.2f} / Allowed ${main_alloc_total:,.2f} | Available ${main_alloc_total-main_allocated:,.2f}\n")
     state = State('state.json')
     sync_positions(ib, state)
     cleanup_orphan_stops(ib)
@@ -365,7 +342,6 @@ def main():
     spy_long_allowed = spy_df["smma9"].iloc[-1] > spy_df["smma18"].iloc[-1]
     spy_bearish = not spy_long_allowed
     print(f"[Scan] SPY filter: long_allowed={spy_long_allowed}")
-
     qualified = []
     print("\n[INFO] --- Scanning tickers for signals ---")
     for symbol in symbols:
@@ -396,11 +372,12 @@ def main():
                     qualified.append({
                         "symbol":symbol, "score":comp_score, "rvol":rvol,
                         "momentum":momentum, "price":s["close"], "signal_type":s["signal_type"],
-                        "timeframe":s["label"], "signal_date":str(s["date"]), "age":age, "df":df_daily
+                        "timeframe":s["label"], "signal_date":str(s["date"]), "age":age, "df":df_daily,
+                        "slow_len": p["slow"],  # Needed for MA stop
+                        "fast_len": p["fast"],
                     })
         else:
             print(f"[DEBUG] {symbol}: Daily data/combo missing.")
-
         # --- 8-HOUR
         df_8h = cached_fetch_ohlcv(ib, symbol, 240, '8 hours')
         if df_8h is not None and "8-Hour" in best:
@@ -416,11 +393,12 @@ def main():
                     qualified.append({
                         "symbol":symbol, "score":comp_score, "rvol":rvol,
                         "momentum":momentum, "price":s["close"], "signal_type":s["signal_type"],
-                        "timeframe":s["label"], "signal_date":str(s["date"]), "age":age, "df":df_8h
+                        "timeframe":s["label"], "signal_date":str(s["date"]), "age":age, "df":df_8h,
+                        "slow_len": p["slow"],
+                        "fast_len": p["fast"],
                     })
         else:
             print(f"[DEBUG] {symbol}: 8h data/combo missing.")
-
         # --- 4-HOUR
         df_4h = cached_fetch_ohlcv(ib, symbol, 360, '4 hours')
         if df_4h is not None and "4-Hour" in best:
@@ -436,23 +414,22 @@ def main():
                     qualified.append({
                         "symbol":symbol, "score":comp_score, "rvol":rvol,
                         "momentum":momentum, "price":s["close"], "signal_type":s["signal_type"],
-                        "timeframe":s["label"], "signal_date":str(s["date"]), "age":age, "df":df_4h
+                        "timeframe":s["label"], "signal_date":str(s["date"]), "age":age, "df":df_4h,
+                        "slow_len": p["slow"],
+                        "fast_len": p["fast"],
                     })
         else:
             print(f"[DEBUG] {symbol}: 4h data/combo missing.")
         if not found_signal:
             print(f"[INFO] {symbol}: No SMMA cross/reentry signals found on any timeframe.")
-
     qualified_sorted = sorted(qualified, key=lambda x: x['score'], reverse=True)
     print("\n[Debug] All filter-qualified tickers before 10% price filter:")
     print("Rank | Symbol | Score      | Signal Px |")
     print("-----|--------|------------|-----------|")
     for z, q in enumerate(qualified_sorted, 1):
         print(f"{z:>4} | {q['symbol']:<6} | {q['score']:>10.4f} | {q['price']:>9.2f}")
-
     top_unique = []
     seen_symbols = set()
-
     for q in qualified_sorted:
         sym = q["symbol"]
         live_px = get_underlying_price(ib, Stock(sym, 'SMART', 'USD'))
@@ -464,13 +441,11 @@ def main():
             seen_symbols.add(sym)
             if len(top_unique) == MAX_POSITIONS:
                 break
-
     print(f"Qualified/Actionable Candidates: {len(top_unique)} / Requested: {MAX_POSITIONS}")
     if not top_unique:
         print("[INFO] No actionable candidates found after all filters/scans.\n")
     if len(top_unique) < MAX_POSITIONS:
         print("[INFO] Fewer signals than requested max positions. Review filters/combinations for opportunities.\n")
-
     print("\n[Result] Top signals (SMMA cross/reentry for all timeframes, unique tickers):")
     print("Idx | Symbol  | Timeframe | Type    | Date                | Price    | RVOL    | MOM")
     print("----|---------|-----------|---------|---------------------|----------|---------|---------")
@@ -481,9 +456,12 @@ def main():
             nice_date = str(q['signal_date'])
         print(f"{i+1:>3} | {q['symbol']:<7} | {q['timeframe']:<9} | {q['signal_type']:<7} | "
               f"{nice_date:<19} | {q['price']:<8.2f} | {q['rvol']:<6.2f} | {q['momentum']:<6.3f}")
-
     for q in top_unique:
         symbol = q['symbol']
+        price = q['price']
+        if price is None or (isinstance(price, float) and math.isnan(price)):
+            print(f"[Order] {symbol}: price is NaN or None, skipping.")
+            continue
         if symbol in state.data['positions'] or symbol in ib_pos_symbols:
             print(f"[Order] {symbol}: active, skipping order placement.")
             continue
@@ -493,9 +471,9 @@ def main():
         else:
             avail_cap = main_alloc_total - main_allocated
             group = "main"
-        size = get_trade_size(avail_cap, q['price'], MAX_ALLOC)
+        size = get_trade_size(avail_cap, price, MAX_ALLOC)
         if size > 0:
-            alloc_amount = size * q["price"]
+            alloc_amount = size * price
             if group == "special":
                 special_allocated += alloc_amount
             else:
@@ -504,40 +482,43 @@ def main():
             print(f"[Order] {symbol}: trade skipped, exceeds 15% allocation rule or group cap.")
             continue
         df = q["df"]
-        alloc_pct = size * q["price"] / account_bal * 100
-        prompt = f"\n[Prompt] {symbol}: Buy {size} at ${q['price']:.2f} ({alloc_pct:.1f}% capital, stop after fill)?. Confirm (y/n): "
+        alloc_pct = size * price / account_bal * 100
+        prompt = f"\n[Prompt] {symbol}: Buy {size} at ${price:.2f} ({alloc_pct:.1f}% capital, stop after fill)?. Confirm (y/n): "
         user_input = input(prompt).strip().lower()
         if user_input != 'y':
             print(f"[Order] {symbol}: user declined trade.")
             continue
-        print(f"[Order] Confirmed for {symbol}: placing order for {size} shares at ${q['price']:.2f}.")
+        print(f"[Order] Confirmed for {symbol}: placing order for {size} shares at ${price:.2f}.")
         if symbol in EXCEPTION_TICKERS:
-            atr_val = float(atr(df, ATR_PERIOD).iloc[-1])
-            high_since_entry = q['price']
-            stop_px = high_since_entry - ATR_MULTIPLIER * atr_val
-            print(f"[Order] ATR stop calculated at {stop_px:.2f}")
+            atr_val = float(atr(df, EXCEPTION_ATR_PERIOD).iloc[-1])
+            high_since_entry = price
+            if high_since_entry is None or not isinstance(high_since_entry, (float, int)):
+                high_since_entry = df["close"].iloc[-1]
+            stop_px = high_since_entry - EXCEPTION_ATR_MULTIPLIER * atr_val
+            print(f"[Order] ATR stop for EXCEPTION calculated at {stop_px:.2f}")
         else:
-            st, direction = supertrend(df)
-            stop_px = float(st.iloc[-1])
-            print(f"[Order] Supertrend stop calculated at {stop_px:.2f}")
-        success, trade = place_entry_order(ib, symbol, size, q['price'], stop_px)
+            slow_len = q.get("slow_len", 44)
+            df['smma_slow'] = smma(df['close'], slow_len)
+            smma_slow = float(df['smma_slow'].iloc[-1])
+            stop_px = smma_slow * (1 - MAIN_STOP_BUFFER)
+            print(f"[Order] Stop set a little below SMMA{slow_len} at {stop_px:.2f}")
+        success, trade = place_entry_order(ib, symbol, size, price, stop_px)
         if not success:
             print(f"[Order] {symbol}: order/stop failed or not filled.")
             continue
         fill_time = trade.log[-1].time.strftime('%Y-%m-%d %H:%M:%S') if trade.log else "Unknown"
-        log_trade(symbol, size, q['price'], stop_px, fill_time)
+        log_trade(symbol, size, price, stop_px, fill_time)
         state.data['positions'][symbol] = {
-            "entry_price": q['price'],
+            "entry_price": price,
             "shares": size,
             "active_stop": stop_px,
-            "stop_type": "atr" if symbol in EXCEPTION_TICKERS else "supertrend",
-            "high_since_entry": q['price'] if symbol in EXCEPTION_TICKERS else None,
+            "stop_type": "atr",
+            "high_since_entry": price,
             "signal_timeframe": q['timeframe'],
             "signal_type": q['signal_type'],
             "signal_date": q['signal_date'],
             "closed": False
         }
-
     print("[INFO] Applying index defense & updating trailing stops...")
     apply_index_defense(ib, state, spy_bearish)
     update_trailing_stops(ib, state)
@@ -547,5 +528,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
