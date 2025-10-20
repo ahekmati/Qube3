@@ -1,3 +1,29 @@
+
+"""
+================================================================================
+Automated SMMA-Based Swing Trading and Position Manager — IBKR API
+================================================================================
+
+This script connects to Interactive Brokers via the ib_insync library to:
+1. Load and cache OHLCV data for tickers defined in config.json.
+2. Detect SMMA “cross” and “reentry” buy signals across multiple timeframes.
+3. Score tickers using momentum and relative volume (RVOL) filters.
+4. Split portfolio capital into:
+   - Main group (normal stocks, ETF trades) — capped at 50% total allocation.
+   - Exception group (high-volatility, inverse/momentum tickers) — capped at 50%.
+5. Skip new main-group trades once the 50% main allocation cap is reached.
+6. Log trades, place orders, trigger ATR/SMMA-based stop losses, 
+   and manage trailing stop adjustments.
+7. Tighten stops automatically when SPY signals bearish momentum.
+
+Fully compatible with IBKR Paper or Live accounts.
+
+Author: [Your Name]
+Last Updated: October 2025
+================================================================================
+"""
+
+
 import sys
 import logging
 import json
@@ -313,6 +339,8 @@ def main():
     special_alloc_total = account_bal * 0.5
     main_allocated = 0.0
     special_allocated = 0.0
+   
+
     print(f"\n[INFO] Main group: {sorted(main_group)}")
     print(f"[INFO] Exception/Momentum group: {sorted(special_group)}")
     positions = list(ib.positions())
@@ -329,6 +357,11 @@ def main():
             special_allocated += market_val
         elif sym in main_group:
             main_allocated += market_val
+    
+    if main_allocated >= main_alloc_total:
+            print("\n[CAP ALERT] Main group allocation cap reached (50%). "
+          "Only exception tickers will be considered for new trades.\n")
+
     print(f"\nACCOUNT VALUE: ${account_bal:,.2f}")
     print(f"Exception Group Allocation: Used ${special_allocated:,.2f} / Allowed ${special_alloc_total:,.2f} | Available ${special_alloc_total-special_allocated:,.2f}")
     print(f"Main Group Allocation:      Used ${main_allocated:,.2f} / Allowed ${main_alloc_total:,.2f} | Available ${main_alloc_total-main_allocated:,.2f}\n")

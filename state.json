@@ -4,9 +4,9 @@
     "QGEN": {
       "entry_price": 46.98,
       "shares": 8,
-      "active_stop": 46.193636363636365,
+      "active_stop": 46.46409090909091,
       "stop_type": "supertrend",
-      "high_since_entry": 46.98,
+      "high_since_entry": 48.38,
       "signal_timeframe": "4H",
       "signal_type": "cross",
       "signal_date": "794",
@@ -28,7 +28,7 @@
       "shares": 5,
       "active_stop": 73.51818181818182,
       "stop_type": "supertrend",
-      "high_since_entry": 72.54,
+      "high_since_entry": 73.06,
       "signal_timeframe": "8H",
       "signal_type": "reentry",
       "signal_date": "470",
@@ -43,6 +43,61 @@
       "signal_timeframe": "4H",
       "signal_type": "reentry",
       "signal_date": "797",
+      "closed": false
+    },
+    "PGEN": {
+      "entry_price": 4.005,
+      "shares": 8,
+      "active_stop": 3.429886595984672,
+      "stop_type": "atr",
+      "high_since_entry": 4.08,
+      "signal_timeframe": "8H",
+      "signal_type": "cross",
+      "signal_date": "479",
+      "closed": false
+    },
+    "BBVA": {
+      "entry_price": 19.47,
+      "shares": 1,
+      "active_stop": 19.059204545454545,
+      "stop_type": "atr",
+      "high_since_entry": 20.02,
+      "signal_timeframe": "8H",
+      "signal_type": "reentry",
+      "signal_date": "477",
+      "closed": false
+    },
+    "VIPS": {
+      "entry_price": 18.8,
+      "shares": 1,
+      "active_stop": 18.640435615905997,
+      "stop_type": "atr",
+      "high_since_entry": 18.8,
+      "signal_timeframe": "8H",
+      "signal_type": "reentry",
+      "signal_date": "479",
+      "closed": false
+    },
+    "WBD": {
+      "entry_price": 18.48,
+      "shares": 1,
+      "active_stop": 18.102800755804367,
+      "stop_type": "atr",
+      "high_since_entry": 18.48,
+      "signal_timeframe": "8H",
+      "signal_type": "cross",
+      "signal_date": "475",
+      "closed": false
+    },
+    "TV": {
+      "entry_price": 2.44,
+      "shares": 8,
+      "active_stop": 2.4286335784804205,
+      "stop_type": "atr",
+      "high_since_entry": 2.44,
+      "signal_timeframe": "DAILY",
+      "signal_type": "reentry",
+      "signal_date": "118",
       "closed": false
     }
   },

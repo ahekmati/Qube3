@@ -44,7 +44,7 @@ init(autoreset=True)
 getcontext().prec = 28
 
 client = RESTClient(key_file="coinbase_api_key.json")
-PRODUCT_IDS = ["SOL-USDC", "ETH-USDC"]
+PRODUCT_IDS = ["SOL-USDC", "ETH-USDC", "XRP-USDC"]
 GRANULARITY = "ONE_DAY"
 CANDLE_COUNT = 240
 STOP_OFFSET = 8.0
