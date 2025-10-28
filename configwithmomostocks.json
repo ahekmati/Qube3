@@ -1,0 +1,27 @@
+{
+  "user_tickers": [
+   "AAPL", "AEVA", "AMD", "AMLX", "AMPX", "AMZN", "APP", "APLD", "APPS", "ARKK","ASTS", "AVGO", "AXON", "BAP", "BBVA", "BE",
+    "BILI", "BSBR", "CANG", "CDE", "CEG", "CELC", "CIB", "CMCL", "COMM", "CPNG", "CPS", "CRWD", "CVS", "CZR", "DASH",
+    "DB", "EC", "EEM", "FAST", "FUBO", "GDS", "GE", "GEV", "GDXJ", "GH", "GLW", "GOOG", "GOOGL","HOOD", "HWM", "IBIT", "IDXX",
+    "ILMN", "IMRX", "ING", "IONQ", "ITUB", "JBL", "JAZZ", "KLAC", "KTOS", "LASR", "LCTX", "LEU","LUNR", "LRCX", "LYG", "MASS",
+    "MDB", "MELI", "META", "METC", "MLYS", "MPWR", "MSFT", "MU", "NBIS", "NEM", "NFLX", "NRG", "NUGT", "NU", "NVDA",
+    "NVS", "OPEN", "OPRX", "ORCL", "ORLY", "PAGS", "PBR", "PDD", "PGEN", "PLTR", "PRGO", "QTUM", "QGEN", "QQQ", "RIO","RKLB",
+    "RPRX", "SATS", "SCCO", "SHEL", "SMCI", "SMFG", "SOXL", "SPY", "SSL", "SSO", "STX", "SVXY", "STM",
+    "TDUP", "TEL", "TEVA", "TME", "TPR", "TSLA", "TSLL", "TTWO", "TV", "UBER", "UUUU", "VALE", "VIPS", "VST", "WBD",
+    "WDC", "WYNN", "YPF", "ZS"
+  ],
+  "max_stocks": 5,
+  "state_file": "state.json",
+  "trade_log": "trades.csv",
+  "position_alloc": 0.1,
+  "window_smma": 31,
+  "ib_host": "127.0.0.1",
+  "ib_port": 4001,
+  "ib_client_id": 1,
+  "max_risk_per_trade": 0.02,
+  "trading_hours": ["09:35", "15:55"],
+  "holidays": [],
+  "demo_mode": false,
+  "trade_timezone": "US/Eastern",
+  "_version": "4.0"
+}

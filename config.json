@@ -1,14 +1,6 @@
 {
   "user_tickers": [
-   "AAPL", "AEVA", "AMD", "AMLX", "AMPX", "AMZN", "APP", "APLD", "APPS", "ARKK","ASTS", "AVGO", "AXON", "BAP", "BBVA", "BE",
-    "BILI", "BSBR", "CANG", "CDE", "CEG", "CELC", "CIB", "CMCL", "COMM", "CPNG", "CPS", "CRWD", "CVS", "CZR", "DASH",
-    "DB", "EC", "EEM", "FAST", "FUBO", "GDS", "GE", "GEV", "GDXJ", "GH", "GLW", "GOOG", "GOOGL","HOOD", "HWM", "IBIT", "IDXX",
-    "ILMN", "IMRX", "ING", "IONQ", "ITUB", "JBL", "JAZZ", "KLAC", "KTOS", "LASR", "LCTX", "LEU","LUNR", "LRCX", "LYG", "MASS",
-    "MDB", "MELI", "META", "METC", "MLYS", "MPWR", "MSFT", "MU", "NBIS", "NEM", "NFLX", "NRG", "NUGT", "NU", "NVDA",
-    "NVS", "OPEN", "OPRX", "ORCL", "ORLY", "PAGS", "PBR", "PDD", "PGEN", "PLTR", "PRGO", "QTUM", "QGEN", "QQQ", "RIO","RKLB",
-    "RPRX", "SATS", "SCCO", "SHEL", "SMCI", "SMFG", "SOXL", "SPY", "SSL", "SSO", "STX", "SVXY", "STM",
-    "TDUP", "TEL", "TEVA", "TME", "TPR", "TSLA", "TSLL", "TTWO", "TV", "UBER", "UUUU", "VALE", "VIPS", "VST", "WBD",
-    "WDC", "WYNN", "YPF", "ZS"
+    "ARKK","IBIT","NUGT","QTUM","SOXL", "SSO", "SVXY" ,"TSLL","NVDL","TQQQ"
   ],
   "max_stocks": 5,
   "state_file": "state.json",
