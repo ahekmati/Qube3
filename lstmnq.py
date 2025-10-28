@@ -14,10 +14,11 @@ from tensorflow.keras.callbacks import EarlyStopping
 def run_lstm_regime(ticker, period, interval, lstm_window):
     df = yf.download(ticker, period=period, interval=interval)
     if df is None or df.empty or 'Close' not in df.columns:
-        raise ValueError(f"No data returned for {ticker} interval {interval}.")
+        print(f"No data for {ticker} interval {interval}.")
+        return None
 
     df = df.rename(columns={'Close': 'close', 'Volume': 'volume'})
-    close_series = df['close'].squeeze()  # ensure Series
+    close_series = df['close'].squeeze()
 
     # Standard Indicators
     df['returns'] = close_series.pct_change()
@@ -37,7 +38,7 @@ def run_lstm_regime(ticker, period, interval, lstm_window):
         df[f'sma{w}'] = close_series.rolling(window=w, min_periods=1).mean()
 
     # Crossover features
-    for fast, slow in [(8,21), (9,18),(10,50), (12,100),(17,23),(10,21), (21,50), (50,100)]:
+    for fast, slow in [(8,21), (10,50), (12,100), (10,21), (21,50), (50,100)]:
         fcol, scol = f'ema{fast}', f'ema{slow}'
         if fcol in df.columns and scol in df.columns:
             df[f'{fcol}_above_{scol}'] = (df[fcol] > df[scol]).astype(int)
@@ -47,7 +48,7 @@ def run_lstm_regime(ticker, period, interval, lstm_window):
             df[f'{fcol}_above_{scol}'] = (df[fcol] > df[scol]).astype(int)
 
     # Price crossing slow MA
-    for slow in [9,50,100,200]:
+    for slow in [36,50,100,200]:
         ema_slow = f'ema{slow}'
         sma_slow = f'sma{slow}'
         if ema_slow in df.columns:
@@ -90,8 +91,6 @@ def run_lstm_regime(ticker, period, interval, lstm_window):
             labels.append(0)   # Consolidating
     df['regime'] = labels
 
-    print(f"\n{interval.upper()} label distribution:", collections.Counter(df['regime']))
-
     # LSTM Data Prep
     window = min(lstm_window, len(X_scaled) - 1)
     X, y = [], []
@@ -100,8 +99,8 @@ def run_lstm_regime(ticker, period, interval, lstm_window):
         y.append(df['regime'].iloc[i])
     X, y = np.array(X), np.array(y)
     if len(X) < 2 or len(set(y)) < 2:
-        print(f"Not enough data for LSTM ({interval}), skipping.")
-        return
+        print(f"{ticker}: not enough data for LSTM, skipping.")
+        return None
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=False, test_size=0.15)
 
@@ -117,21 +116,45 @@ def run_lstm_regime(ticker, period, interval, lstm_window):
     model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     callbacks = [EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)]
     model.fit(X_train, y_train, validation_data=(X_test, y_test),
-              epochs=80, batch_size=32, callbacks=callbacks, verbose=2)
+              epochs=60, batch_size=32, callbacks=callbacks, verbose=0)
 
     # Output
     y_pred = np.argmax(model.predict(X_test), axis=1)
-    print(f"\n{interval.upper()} regime predictions (last 10):")
-    for idx, val in enumerate(y_pred[-20:]):
-        if val == 0:
-            regime = "Consolidating"
-        elif val == 1:
-            regime = "Bullish"
-        elif val == 2:
-            regime = "Bearish"
-        date = df.index[len(df) - len(y_pred) + idx]
-        print(f"Date: {date} - Regime: {regime}")
+    dates = df.index[len(df) - len(y_pred):]
+    regime_names = []
+    for val in y_pred[-20:]:
+        if val == 0: regime_names.append("Consolidating")
+        elif val == 1: regime_names.append("Bullish")
+        elif val == 2: regime_names.append("Bearish")
+    return {'ticker': ticker, 'dates': dates[-20:], 'regimes': regime_names}
 
-# Run for 4h and 1d
-run_lstm_regime('QQQ', '60d', '4h', 20)   # 4-hour bars
-#run_lstm_regime('QQQ', '1y',  '1d', 8)   # 1-day bars
+# ------ Tickers highly correlated with QQQ ------
+tickers = ['QQQ', 'SPY', 'AAPL', 'MSFT', 'NVDA', 'GOOGL','SVXY','SOXL']
+
+period = '90d'
+interval = '4h'
+lstm_window = 8
+
+results = []
+for ticker in tickers:
+    res = run_lstm_regime(ticker, period, interval, lstm_window)
+    if res:
+        results.append(res)
+
+# -- Print per-ticker regime results --
+for r in results:
+    print(f"\n--- {r['ticker']} regime (last 10 bars) ---")
+    for d, regime in zip(r['dates'], r['regimes']):
+        print(f"{d}: {regime}")
+
+# -- Consensus regime call for last bar --
+if results:
+    last_regimes = [r['regimes'][-1] for r in results]
+    consensus = collections.Counter(last_regimes).most_common(1)[0][0]
+    print(f"\nConsensus regime (across tickers), last bar: {consensus}")
+    if consensus == "Bullish":
+        print("Action: BUY (confirmed by majority of correlated tickers)")
+    elif consensus == "Bearish":
+        print("Action: SHORT (confirmed by majority of correlated tickers)")
+    else:
+        print("Action: HOLD/No Action (mixed signals)")
