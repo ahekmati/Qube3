@@ -4,13 +4,13 @@ import numpy as np
 import itertools
 
 # --- CONFIG ---
-symbol = 'QQQ'
+symbol = 'TQQQ'
 exchange = 'ARCA'
 currency = 'USD'
 period = '365 D'
 candle_size = '4 hours'
 backtest_start = '2024-01-01'
-backtest_end = '2025-10-01'
+backtest_end = '2025-10-27'
 
 z_long_range = np.arange(-0.5, -2.6, -0.1)   # Buy: z < threshold
 z_short_range = np.arange(0.5, 2.6, 0.1)     # Sell: z > threshold
