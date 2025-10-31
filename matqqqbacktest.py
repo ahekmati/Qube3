@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # --- CONFIG ---
-symbol = 'QQQ'
+tickers = ['QQQ', 'SPY']
 exchange = 'ARCA'
 currency = 'USD'
 period = '60 D'
@@ -12,7 +12,7 @@ ema_fast = 20
 ema_slow = 50
 z_window = 20
 z_thresh = -0.5
-take_profit_pct = 0.05
+take_profit_pct = .12
 max_hold = 50
 backtest_start = '2025-03-01'
 backtest_end = '2025-10-29'
@@ -47,56 +47,53 @@ def compute_buy_the_dip_time_tp_only(df):
     buy_signals = (df['close'] < df['ema_slow']) & dip_signal
     df['buy_the_dip'] = buy_signals.fillna(False)
     df['signal'] = ''
-
     in_position = False
     i = 0
     while i < len(df):
         idx = df.index[i]
-        # Only enter if not in position
         if not in_position and df.at[idx, 'buy_the_dip']:
             entry_price = df.at[idx, 'close']
             df.at[idx, 'signal'] = 'BUY'
             in_position = True
             exit_found = False
-            # Check for exits after entry
             for j in range(i+1, min(i+max_hold+1, len(df))):
                 tp_price = entry_price * (1 + take_profit_pct)
                 closej = df['close'].iloc[j]
                 idxj = df.index[j]
                 if closej >= tp_price:
                     df.at[idxj, 'signal'] = 'SELL (TP)'
-                    i = j + 1           # move index to after the exit trade
+                    i = j + 1
                     in_position = False
                     exit_found = True
                     break
             if not exit_found and (i+max_hold < len(df)):
                 idxj = df.index[i+max_hold]
                 df.at[idxj, 'signal'] = 'SELL (TIME)'
-                i = i + max_hold + 1  # move index to after the time exit
+                i = i + max_hold + 1
                 in_position = False
             elif not exit_found:
                 i += 1
-                # Stay in_position True until loop runs out
         elif in_position:
-            i += 1  # Skip bars while in position
+            i += 1  # skip bars during position
         else:
-            i += 1  # Not a buy, not in position, advance by 1
+            i += 1
     return df
 
-# --- Main loop with backtest & print ---
-for size in candle_sizes:
-    print(f"\n===== {size.upper()} bars =====")
-    df = get_data(symbol, size, period)
-    df = df[(df.index >= backtest_start) & (df.index <= backtest_end)]
-    df = compute_buy_the_dip_time_tp_only(df)
-    signals = df[df['signal'].str.startswith('BUY') | df['signal'].str.startswith('SELL')][['signal', 'close', 'ema_fast', 'ema_slow']]
-    for idx, row in signals.iterrows():
-        print(f"{idx.strftime('%Y-%m-%d %H:%M')}: {row['signal']} @ {row['close']:.2f} (EMA{ema_fast}={row['ema_fast']:.2f}, EMA{ema_slow}={row['ema_slow']:.2f})")
-    # PnL calculation
-    buy_prices = signals[signals['signal'].str.startswith('BUY')]['close'].values
-    sell_prices = signals[signals['signal'].str.startswith('SELL')]['close'].values
-    n_trades = min(len(buy_prices), len(sell_prices))
-    profits = sell_prices[:n_trades] - buy_prices[:n_trades]
-    print(f"\nTrades: {n_trades} | Total PnL: {profits.sum():.2f} | Mean per trade: {profits.mean() if n_trades else 0:.2f}")
+# --- Main loop: run for each ticker, each timeframe ---
+for symbol in tickers:
+    for size in candle_sizes:
+        print(f"\n===== {symbol}: {size.upper()} bars =====")
+        df = get_data(symbol, size, period)
+        df = df[(df.index >= backtest_start) & (df.index <= backtest_end)]
+        df = compute_buy_the_dip_time_tp_only(df)
+        signals = df[df['signal'].str.startswith('BUY') | df['signal'].str.startswith('SELL')][['signal', 'close', 'ema_fast', 'ema_slow']]
+        for idx, row in signals.iterrows():
+            print(f"{idx.strftime('%Y-%m-%d %H:%M')}: {row['signal']} @ {row['close']:.2f} (EMA{ema_fast}={row['ema_fast']:.2f}, EMA{ema_slow}={row['ema_slow']:.2f})")
+        # PnL calculation
+        buy_prices = signals[signals['signal'].str.startswith('BUY')]['close'].values
+        sell_prices = signals[signals['signal'].str.startswith('SELL')]['close'].values
+        n_trades = min(len(buy_prices), len(sell_prices))
+        profits = sell_prices[:n_trades] - buy_prices[:n_trades]
+        print(f"\nTrades: {n_trades} | Total PnL: {profits.sum():.2f} | Mean per trade: {profits.mean() if n_trades else 0:.2f}")
 
 ib.disconnect()
