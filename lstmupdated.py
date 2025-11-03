@@ -1,221 +1,214 @@
-import yfinance as yf
+from ib_insync import *
 import pandas as pd
 import numpy as np
-import collections
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from ta.volatility import BollingerBands
-from ta.momentum import RSIIndicator
-from ta.trend import MACD
-from hmmlearn.hmm import GaussianHMM
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import LSTM, Conv1D, MaxPooling1D, Flatten, Dense
 
-# ---- SETTINGS ----
-tickers = ['QQQ', 'SPY', 'SVXY', 'SOXL','ARKK']
-timeframes = [
-    {'period': '180d', 'interval': '4h', 'window': 8, 'states': 3},
-    {'period': '2y', 'interval': '1d', 'window': 8, 'states': 2}
-]
-use_pca = True   # Set to True to activate PCA dimensionality reduction
-n_pca = 6        # Top n features to keep if using PCA
-labeling_method = 'hmm'  # 'quantile' or 'hmm'
+# IBKR CONNECTION SETTINGS
+IB_HOST = '127.0.0.1'
+IB_PORT = 4001
+IB_CLIENT_ID = 123
 
-def build_features(df):
-    close_series = df['close'].squeeze()
-    df['returns'] = close_series.pct_change()
-    df['rsi'] = RSIIndicator(close_series, window=14).rsi()
-    df['macd'] = MACD(close_series).macd()
-    boll = BollingerBands(close_series)
-    df['bbh'] = boll.bollinger_hband()
-    df['bbl'] = boll.bollinger_lband()
-    df['bb_width'] = df['bbh'] - df['bbl']
+tickers = ["TQQQ", "SSO"]
+exchange = "ARCA"
+currency = "USD"
+lookback = 30
+target_pct = 1.5
+stop_loss_pct = 0.12
+max_bars_in_trade = 180
 
-    ema_spans = [8, 10, 12, 21, 50, 100]
-    sma_windows = [10, 20, 50, 200]
-    for span in ema_spans:
-        df[f'ema{span}'] = close_series.ewm(span=span, adjust=False).mean()
-    for w in sma_windows:
-        df[f'sma{w}'] = close_series.rolling(window=w, min_periods=1).mean()
+bar_size = "1 day"
+duration = "3 Y"
+tf_name = "DAILY"
 
-    for fast, slow in [(8,21), (10,50), (12,100), (10,21), (21,50), (50,100)]:
-        fcol, scol = f'ema{fast}', f'ema{slow}'
-        if fcol in df.columns and scol in df.columns:
-            df[f'{fcol}_above_{scol}'] = (df[fcol] > df[scol]).astype(int)
-    for fast, slow in [(10,20), (20,50), (50,200)]:
-        fcol, scol = f'sma{fast}', f'sma{slow}'
-        if fcol in df.columns and scol in df.columns:
-            df[f'{fcol}_above_{scol}'] = (df[fcol] > df[scol]).astype(int)
-
-    for slow in [50,100,200]:
-        ema_slow = f'ema{slow}'
-        sma_slow = f'sma{slow}'
-        if ema_slow in df.columns:
-            df[f'close_crossed_above_{ema_slow}'] = (
-                (close_series.shift(1) < df[ema_slow].shift(1)) & (close_series > df[ema_slow])
-            ).astype(int)
-        if sma_slow in df.columns:
-            df[f'close_crossed_above_{sma_slow}'] = (
-                (close_series.shift(1) < df[sma_slow].shift(1)) & (close_series > df[sma_slow])
-            ).astype(int)
+def fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size):
+    contract = Stock(ticker, exchange, currency)
+    bars = ib.reqHistoricalData(
+        contract,
+        endDateTime='',
+        durationStr=duration,
+        barSizeSetting=bar_size,
+        whatToShow='TRADES',
+        useRTH=False,
+        formatDate=1
+    )
+    if not bars:
+        return None
+    df = util.df(bars)
+    df = df.rename(columns=str.lower).set_index('date')
     return df
 
-def prune_features(df, feature_cols):
-    # Remove features with near-zero variance or high correlation (keep most informative)
-    data = df[feature_cols].copy()
-    var_thresh = 1e-5
-    keep = data.var() > var_thresh
-    feature_cols = list(data.columns[keep])
-    corr = data[feature_cols].corr().abs()
-    upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
-    to_drop = [column for column in upper.columns if any(upper[column] > 0.95)]
-    feature_cols = [col for col in feature_cols if col not in to_drop]
-    return feature_cols
+def add_classic_signals(df):
+    ema_fast = 20
+    ema_slow = 50
+    ema_short_slow = 70
+    z_window = 20
+    z_thresh_long = -0.5
+    z_thresh_short = 0.7
 
-def label_regimes_hmm(series, states=3):
-    dat = pd.DataFrame()
-    dat['returns'] = series.pct_change()
-    dat['volatility'] = dat['returns'].rolling(5).std()
-    dat = dat.dropna().drop_duplicates()
-    X = dat[['returns', 'volatility']].values
-    if len(X) < 10 or X.shape[0] <= states*3:
-        print('Not enough data for HMM: falling back to quantile labeling.')
-        return np.zeros(len(series), dtype=int)
-    try:
-        hmm = GaussianHMM(n_components=states, covariance_type='full', n_iter=1000, random_state=42)
-        hmm.fit(X)
-        reg = hmm.predict(X)
-    except Exception as e:
-        print(f"HMM failed: {e}, falling back to quantile labeling.")
-        return np.zeros(len(series), dtype=int)
-    out = np.zeros(len(series), dtype=int)
-    out[-len(reg):] = reg
-    regime_means = {k: dat['returns'].values[reg == k].mean() for k in set(reg)}
-    order = sorted(regime_means, key=lambda x: regime_means[x])
-    if len(order) == 2:
-        mapping = {order[0]:2, order[1]:1}  # bearish, bullish
-    else:
-        mapping = {order[0]:2, order[1]:0, order[2]:1}  # bearish, consolidating, bullish
-    out = np.array([mapping[v] if v in mapping else 0 for v in out])
-    return out
+    df['ema_fast'] = df['close'].ewm(span=ema_fast, adjust=False).mean()
+    df['ema_slow'] = df['close'].ewm(span=ema_slow, adjust=False).mean()
+    std20 = df['close'].rolling(z_window).std()
+    dip_z = (df['close'] - df['ema_fast']) / std20
+    df['buy_the_dip'] = ((df['close'] < df['ema_slow']) & (dip_z < z_thresh_long)).astype(int)
 
-def label_regimes_quantile(df):
-    upper = df['returns'].quantile(0.7)
-    lower = df['returns'].quantile(0.3)
-    center = df['bb_width'].median() / 2
-    labels = []
-    for i in range(len(df)):
-        if df['returns'].iloc[i] > upper and df['bb_width'].iloc[i] > center:
-            labels.append(1)   # Bullish
-        elif df['returns'].iloc[i] < lower and df['bb_width'].iloc[i] > center:
-            labels.append(2)   # Bearish
-        else:
-            labels.append(0)   # Consolidating
-    return np.array(labels)
+    df['ema_70'] = df['close'].ewm(span=ema_short_slow, adjust=False).mean()
+    rally_z = (df['close'] - df['ema_fast']) / std20
+    df['sell_the_rally'] = ((df['ema_fast'] < df['ema_70']) & (df['close'] > df['ema_70']) & (rally_z >= z_thresh_short)).astype(int)
+    return df
 
-def run_lstm_regime(ticker, period, interval, lstm_window, states=3, use_pca=False, n_pca=6, labeling_method='quantile'):
-    df = yf.download(ticker, period=period, interval=interval)
-    if df is None or df.empty or 'Close' not in df.columns:
-        print(f"No data for {ticker} interval {interval}.")
-        return None
+def indicator_pipeline(df):
+    def wma(series, period):
+        weights = np.arange(1, period+1)
+        return series.rolling(period).apply(lambda x: np.dot(x, weights)/weights.sum(), raw=True)
+    def hma(series, period):
+        wmaf = wma(series, period//2)
+        wmas = wma(series, period)
+        raw_hma = 2 * wmaf - wmas
+        return wma(raw_hma, int(np.sqrt(period)))
+    def tema(series, period):
+        ema1 = series.ewm(span=period, adjust=False).mean()
+        ema2 = ema1.ewm(span=period, adjust=False).mean()
+        ema3 = ema2.ewm(span=period, adjust=False).mean()
+        return 3*ema1 - 3*ema2 + ema3
+    def rsi(series, period):
+        delta = series.diff()
+        up, down = delta.clip(lower=0), -delta.clip(upper=0)
+        ma_up = up.ewm(com=(period - 1), min_periods=period).mean()
+        ma_down = down.ewm(com=(period - 1), min_periods=period).mean()
+        rs = ma_up / (ma_down + 1e-10)
+        return 100 - (100 / (1 + rs))
+    def cmo(series, period):
+        diff = series.diff()
+        up = diff.where(diff > 0, 0).rolling(period).sum()
+        down = diff.where(diff < 0, 0).abs().rolling(period).sum()
+        denominator = up + down
+        return 100 * (up - down) / (denominator + 1e-10)
+    def willr(df, period):
+        high = df["high"]
+        low = df["low"]
+        close = df["close"]
+        return (high.rolling(period).max() - close) / (high.rolling(period).max() - low.rolling(period).min()) * -100
+    def roc(series, period):
+        return 100 * (series - series.shift(period)) / (series.shift(period) + 1e-10)
+    def adx(df, period):
+        high = df["high"]
+        low = df["low"]
+        close = df["close"]
+        plus_dm = high.diff()
+        minus_dm = low.diff().abs()
+        tr1 = high - low
+        tr2 = (high - close.shift()).abs()
+        tr3 = (low - close.shift()).abs()
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        atr = tr.rolling(window=period).mean()
+        plus_di = 100 * (plus_dm.ewm(span=period, min_periods=period).mean() / atr)
+        minus_di = 100 * (minus_dm.ewm(span=period, min_periods=period).mean() / atr)
+        dx = (abs(plus_di - minus_di) / (plus_di + minus_di + 1e-10)) * 100
+        adx = dx.ewm(span=period, min_periods=period).mean()
+        return adx
+    def pline(series, period):
+        rises = (series.diff() > 0).astype(int)
+        return rises.rolling(period).sum() / period * 100
 
-    df = df.rename(columns={'Close': 'close', 'Volume': 'volume'})
-    df = build_features(df)
-    df = df.dropna()
+    df["wma"] = wma(df["close"], 14)
+    df["ema"] = df["close"].ewm(span=14).mean()
+    df["rsi"] = rsi(df["close"], 14)
+    df["cmo"] = cmo(df["close"], 14)
+    df["willr"] = willr(df, 14)
+    df["roc"] = roc(df["close"], 14)
+    df["hma"] = hma(df["close"], 14)
+    df["tema"] = tema(df["close"], 14)
+    df["adx"] = adx(df, 14)
+    df["pline"] = pline(df["close"], 14)
+    return df
 
-    feature_cols = ['close', 'returns', 'rsi', 'macd', 'bbh', 'bbl', 'bb_width']
-    feature_cols += [
-        col for col in df.columns
-        if (
-           ('ema' in col and '_above_' not in col and 'close' not in col)
-        or ('sma' in col and '_above_' not in col and 'close' not in col)
-        or '_above_' in col or 'close_crossed_above' in col
-        ) and col not in feature_cols
+ib = IB()
+ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+
+for ticker in tickers:
+    print(f"\n==== {ticker} ====")
+    print(f"\n-- {tf_name} ({bar_size}, {duration}) --")
+    df = fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size)
+    if df is None or len(df) < (lookback+2):
+        print("No data for this timeframe.")
+        continue
+    df = indicator_pipeline(df)
+    df = add_classic_signals(df)
+
+    features = [
+        "wma","ema","rsi","cmo","willr","roc","hma","tema","adx","pline",
+        "ema_fast","ema_slow","ema_70","buy_the_dip","sell_the_rally"
     ]
-    feature_cols = prune_features(df, feature_cols)
-    X_raw = df[feature_cols].values
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X_raw)
+    # Drop any rows where features are NaN before scaling/PCA
+    df = df.dropna(subset=features)
 
-    if use_pca and X_scaled.shape[1] > n_pca:
-        pca = PCA(n_components=n_pca)
-        X_scaled = pca.fit_transform(X_scaled)
-    # Regime labeling
-    if labeling_method == 'hmm':
-        labels = label_regimes_hmm(df['close'], states=states)
-    else:
-        labels = label_regimes_quantile(df)
-    df['regime'] = labels
+    scaler = MinMaxScaler()
+    X_ind = scaler.fit_transform(df[features])
+    pca = PCA(n_components=3)
+    X_pca = pca.fit_transform(X_ind)
+    X_seq, y_seq = [], []
+    close = df["close"].values
 
-    # LSTM Data Prep
-    window = min(lstm_window, len(X_scaled) - 1)
-    X, y = [], []
-    for i in range(window, len(X_scaled)):
-        X.append(X_scaled[i - window:i])
-        y.append(df['regime'].iloc[i])
-    X, y = np.array(X), np.array(y)
-    if len(X) < 2 or len(set(y)) < 2:
-        print(f"{ticker}: not enough data for LSTM, skipping.")
-        return None
+    for i in range(lookback, len(X_pca)):
+        seq_x = X_pca[i - lookback:i]
+        X_seq.append(seq_x)
+        y_seq.append(close[i])
+    X_seq, y_seq = np.array(X_seq), np.array(y_seq)
+    if len(X_seq) < 10:
+        print("Not enough data after indicators for ML fit.")
+        continue
+    split_idx = int(len(X_seq) * 0.8)
+    X_train, X_test = X_seq[:split_idx], X_seq[split_idx:]
+    y_train, y_test = y_seq[:split_idx], y_seq[split_idx:]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=False, test_size=0.15)
+    model = Sequential()
+    model.add(LSTM(50, input_shape=(lookback, 3), return_sequences=True, activation='tanh'))
+    model.add(Conv1D(50, kernel_size=2, padding='same', activation='relu'))
+    model.add(MaxPooling1D(pool_size=2))
+    model.add(Flatten())
+    model.add(Dense(25, activation='relu'))
+    model.add(Dense(1, activation='linear'))
+    model.compile(optimizer='adam', loss='mse')
+    model.fit(X_train, y_train, epochs=12, batch_size=32, validation_data=(X_test, y_test), verbose=0)
 
-    model = Sequential([
-        Input(shape=(window, X.shape[2])),
-        LSTM(64, return_sequences=True),
-        Dropout(0.3),
-        LSTM(32),
-        Dropout(0.3),
-        Dense(16, activation='relu'),
-        Dense(3, activation='softmax')
-    ])
-    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    callbacks = [EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)]
-    model.fit(X_train, y_train, validation_data=(X_test, y_test),
-              epochs=60, batch_size=32, callbacks=callbacks, verbose=0)
+    pred = model.predict(X_test).flatten()
+    trade_dates = df.index[split_idx + lookback:]
+    prev_pred = pred[:-1]
+    curr_pred = pred[1:]
 
-    y_pred = np.argmax(model.predict(X_test), axis=1)
-    dates = df.index[len(df) - len(y_pred):]
-    regime_names = []
-    for val in y_pred[-20:]:
-        if val == 0: regime_names.append("Consolidating")
-        elif val == 1: regime_names.append("Bullish")
-        elif val == 2: regime_names.append("Bearish")
-    return {'ticker': ticker, 'dates': dates[-2:], 'regimes': regime_names}
+    open_trade = False
+    entry_price = 0
+    entry_date = None
+    bars_in_trade = 0
 
-# ------- RUN MULTI-TICKER, MULTI-TIMEFRAME -------
-for tf in timeframes:
-    print(f"\n================= {tf['interval']} regime detection =================")
-    results = []
-    for ticker in tickers:
-        res = run_lstm_regime(
-            ticker, 
-            tf['period'], 
-            tf['interval'],
-            tf['window'],
-            states=tf.get('states', 3),
-            use_pca=use_pca,
-            n_pca=n_pca,
-            labeling_method=labeling_method
-        )
-        if res:
-            results.append(res)
-    # -- Print per-ticker regime results --
-    for r in results:
-        print(f"\n--- {r['ticker']} regime (last 2 bars) ---")
-        for d, regime in zip(r['dates'], r['regimes']):
-            print(f"{d}: {regime}")
-
-    # -- Consensus regime call for last bar --
-    if results:
-        last_regimes = [r['regimes'][-1] for r in results]
-        consensus = collections.Counter(last_regimes).most_common(1)[0][0]
-        print(f"\nConsensus regime (across tickers), last bar: {consensus}")
-        if consensus == "Bullish":
-            print("Action: BUY (confirmed by majority of correlated tickers)")
-        elif consensus == "Bearish":
-            print("Action: SHORT (confirmed by majority of correlated tickers)")
+    print("\nTrade log:")
+    for i in range(len(prev_pred)):
+        date = trade_dates[i+1]
+        price = pred[i+1]
+        actual_close = df.loc[date, "close"]
+        if not open_trade:
+            if curr_pred[i] > prev_pred[i]:
+                entry_price = actual_close
+                entry_date = date
+                bars_in_trade = 0
+                open_trade = True
+                stop_loss = entry_price * (1 - stop_loss_pct)
+                target = entry_price * (1 + target_pct)
+                print(f"{date} BUY @ {entry_price:.2f}")
         else:
-            print("Action: HOLD/No Action (mixed signals)")
+            bars_in_trade += 1
+            if actual_close <= stop_loss:
+                print(f"{date} SELL (STOP) @ {actual_close:.2f} | Entry {entry_date} @ {entry_price:.2f}")
+                open_trade = False
+            elif actual_close >= target:
+                print(f"{date} SELL (TARGET) @ {actual_close:.2f} | Entry {entry_date} @ {entry_price:.2f}")
+                open_trade = False
+            elif bars_in_trade >= max_bars_in_trade:
+                print(f"{date} SELL (EXPIRE) @ {actual_close:.2f} | Entry {entry_date} @ {entry_price:.2f}")
+                open_trade = False
+
+ib.disconnect()
+print("\nBacktest complete.")

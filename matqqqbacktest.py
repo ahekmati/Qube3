@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # --- CONFIG ---
-tickers = ['QQQ', 'SPY']
+tickers = ['TQQQ','SSO']
 exchange = 'ARCA'
 currency = 'USD'
 period = '60 D'

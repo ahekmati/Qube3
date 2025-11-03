@@ -6,26 +6,26 @@ from sklearn.decomposition import PCA
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Conv1D, MaxPooling1D, Flatten, Dense
 
-# IBKR CONNECTION SETTINGS
 IB_HOST = '127.0.0.1'
 IB_PORT = 4001
 IB_CLIENT_ID = 123
 
-# USER PARAMETERS
-tickers = ["TQQQ", "SSO"]  # Add any tickers to scan
-exchange = "ARCA"
+tickers = ["TQQQ", "SSO"]
+exchange = "SMART"
 currency = "USD"
 lookback = 30
-target_pct = 1.6
+target_pct = 1.5
 stop_loss_pct = 0.12
 max_bars_in_trade = 180
+quantity = 1
 
 bar_size = "1 day"
 duration = "3 Y"
 tf_name = "DAILY"
 
 def fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size):
-    contract = Stock(ticker, exchange, currency)
+    primary_map = {'TQQQ': 'NASDAQ', 'SSO': 'ARCA'}
+    contract = Stock(ticker, exchange, currency, primaryExchange=primary_map.get(ticker, 'NASDAQ'))
     bars = ib.reqHistoricalData(
         contract,
         endDateTime='',
@@ -39,6 +39,23 @@ def fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size):
         return None
     df = util.df(bars)
     df = df.rename(columns=str.lower).set_index('date')
+    return df
+
+def add_classic_signals(df):
+    ema_fast = 20
+    ema_slow = 50
+    ema_short_slow = 70
+    z_window = 20
+    z_thresh_long = -0.5
+    z_thresh_short = 0.7
+    df['ema_fast'] = df['close'].ewm(span=ema_fast, adjust=False).mean()
+    df['ema_slow'] = df['close'].ewm(span=ema_slow, adjust=False).mean()
+    std20 = df['close'].rolling(z_window).std()
+    dip_z = (df['close'] - df['ema_fast']) / std20
+    df['buy_the_dip'] = ((df['close'] < df['ema_slow']) & (dip_z < z_thresh_long)).astype(int)
+    df['ema_70'] = df['close'].ewm(span=ema_short_slow, adjust=False).mean()
+    rally_z = (df['close'] - df['ema_fast']) / std20
+    df['sell_the_rally'] = ((df['ema_fast'] < df['ema_70']) & (df['close'] > df['ema_70']) & (rally_z >= z_thresh_short)).astype(int)
     return df
 
 def indicator_pipeline(df):
@@ -105,27 +122,63 @@ def indicator_pipeline(df):
     df["tema"] = tema(df["close"], 14)
     df["adx"] = adx(df, 14)
     df["pline"] = pline(df["close"], 14)
-    return df.dropna()
+    return df
+
+def has_open_long_position(ib, symbol):
+    positions = ib.positions()
+    return any(p.contract.symbol == symbol and p.position > 0 for p in positions)
+
+def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_pct):
+    contract = Stock(symbol, exchange, currency)
+    ib.qualifyContracts(contract)
+    mkt_order = MarketOrder('BUY', qty)
+    trade = ib.placeOrder(contract, mkt_order)
+    print(f"Placed BUY market order {symbol} qty {qty}")
+    while not trade.orderStatus.status in ['Filled', 'Cancelled']:
+        ib.sleep(1)
+    if trade.orderStatus.status == 'Filled':
+        avg_fill = trade.orderStatus.avgFillPrice
+        tp_price = round(avg_fill * (1 + take_profit_pct), 2)
+        sl_price = round(avg_fill * (1 - stop_loss_pct), 2)
+        limit_order = LimitOrder('SELL', qty, tp_price, tif='GTC')
+        stop_order = StopOrder('SELL', qty, sl_price, tif='GTC')
+        ib.placeOrder(contract, limit_order)
+        ib.placeOrder(contract, stop_order)
+        print(f"Placed GTC Limit (TP) @ {tp_price}, Stop @ {sl_price}")
+        return True
+    else:
+        print("Order not filled or cancelled.")
+        return False
+
+def add_trend_filter(df, n_days=20, low_thresh=0.07):
+    recent_low = df['close'].rolling(n_days).min()
+    rel_to_low = (df['close'] - recent_low) / recent_low
+    df['not_too_far_from_low'] = (rel_to_low < low_thresh).astype(int)
+    return df
 
 ib = IB()
 ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
 
 for ticker in tickers:
     print(f"\n==== {ticker} ====")
-    print(f"\n-- {tf_name} ({bar_size}, {duration}) --")
     df = fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size)
-    if df is None or len(df) < (lookback+2):
+    if df is None or len(df) < (lookback + 2):
         print("No data for this timeframe.")
         continue
     df = indicator_pipeline(df)
-    features = ["wma","ema","rsi","cmo","willr","roc","hma","tema","adx","pline"]
+    df = add_classic_signals(df)
+    df = add_trend_filter(df, n_days=20, low_thresh=0.07)
+    features = [
+        "wma","ema","rsi","cmo","willr","roc","hma","tema","adx","pline",
+        "ema_fast","ema_slow","ema_70","buy_the_dip","sell_the_rally","not_too_far_from_low"
+    ]
+    df = df.dropna(subset=features)
     scaler = MinMaxScaler()
     X_ind = scaler.fit_transform(df[features])
     pca = PCA(n_components=3)
     X_pca = pca.fit_transform(X_ind)
     X_seq, y_seq = [], []
     close = df["close"].values
-
     for i in range(lookback, len(X_pca)):
         seq_x = X_pca[i - lookback:i]
         X_seq.append(seq_x)
@@ -137,7 +190,6 @@ for ticker in tickers:
     split_idx = int(len(X_seq) * 0.8)
     X_train, X_test = X_seq[:split_idx], X_seq[split_idx:]
     y_train, y_test = y_seq[:split_idx], y_seq[split_idx:]
-
     model = Sequential()
     model.add(LSTM(50, input_shape=(lookback, 3), return_sequences=True, activation='tanh'))
     model.add(Conv1D(50, kernel_size=2, padding='same', activation='relu'))
@@ -153,37 +205,20 @@ for ticker in tickers:
     prev_pred = pred[:-1]
     curr_pred = pred[1:]
 
-    open_trade = False
-    entry_price = 0
-    entry_date = None
-    bars_in_trade = 0
+    position_open = has_open_long_position(ib, ticker)
 
-    print("\nTrade log:")
-    for i in range(len(prev_pred)):
+    # Signal/position loop: only fire next entry after exit
+    recent_entry = False
+
+    for i in range(len(prev_pred) - 1, len(prev_pred)):
         date = trade_dates[i+1]
         price = pred[i+1]
         actual_close = df.loc[date, "close"]
-        if not open_trade:
-            if curr_pred[i] > prev_pred[i]:
-                # BUY
-                entry_price = actual_close
-                entry_date = date
-                bars_in_trade = 0
-                open_trade = True
-                stop_loss = entry_price * (1 - stop_loss_pct)
-                target = entry_price * (1 + target_pct)
-                print(f"{date} BUY @ {entry_price:.2f}")
+        if not position_open and curr_pred[i] > prev_pred[i] and df.loc[date, "not_too_far_from_low"]:
+            # Fire trade and mark position as open
+            print(f"{date} LIVE BUY @ {actual_close:.2f} for {ticker} (trend-respecting entry)")
+            send_bracket_order(ib, ticker, quantity, actual_close, target_pct, stop_loss_pct)
+            position_open = True  # so only one trade at a time
         else:
-            bars_in_trade += 1
-            if actual_close <= stop_loss:
-                print(f"{date} SELL (STOP) @ {actual_close:.2f} | Entry {entry_date} @ {entry_price:.2f}")
-                open_trade = False
-            elif actual_close >= target:
-                print(f"{date} SELL (TARGET) @ {actual_close:.2f} | Entry {entry_date} @ {entry_price:.2f}")
-                open_trade = False
-            elif bars_in_trade >= max_bars_in_trade:
-                print(f"{date} SELL (EXPIRE) @ {actual_close:.2f} | Entry {entry_date} @ {entry_price:.2f}")
-                open_trade = False
-
+            print(f"{date} No new entry (still in trade or not all criteria met for {ticker}).")
 ib.disconnect()
-print("\nBacktest complete.")

@@ -11,14 +11,13 @@ IB_HOST = '127.0.0.1'
 IB_PORT = 4001
 IB_CLIENT_ID = 123
 
-# USER PARAMETERS
-tickers = ["TQQQ", "SSO"]  # Add any tickers to scan
+tickers = ["TQQQ", "SSO"]
 exchange = "ARCA"
 currency = "USD"
 lookback = 30
-target_pct = 1.6
+target_pct = 1.4
 stop_loss_pct = 0.12
-max_bars_in_trade = 180
+max_bars_in_trade = 150
 
 bar_size = "1 day"
 duration = "3 Y"
@@ -95,6 +94,7 @@ def indicator_pipeline(df):
         rises = (series.diff() > 0).astype(int)
         return rises.rolling(period).sum() / period * 100
 
+    # Extended feature set:
     df["wma"] = wma(df["close"], 14)
     df["ema"] = df["close"].ewm(span=14).mean()
     df["rsi"] = rsi(df["close"], 14)
@@ -105,6 +105,14 @@ def indicator_pipeline(df):
     df["tema"] = tema(df["close"], 14)
     df["adx"] = adx(df, 14)
     df["pline"] = pline(df["close"], 14)
+    df["macd"] = df["close"].ewm(span=12).mean() - df["close"].ewm(span=26).mean()
+    df["macd_signal"] = df["macd"].ewm(span=9).mean()
+    df["volatility"] = df["close"].pct_change().rolling(14).std() * np.sqrt(252)
+    df["volume_sma14"] = df["volume"].rolling(14).mean()
+    df["volume_ratio"] = df["volume"] / df["volume_sma14"]
+    # Regime/trend filter: 200-day MA
+    df["sma200"] = df["close"].rolling(200).mean()
+    df["regime"] = (df["close"] > df["sma200"]).astype(int)
     return df.dropna()
 
 ib = IB()
@@ -118,7 +126,10 @@ for ticker in tickers:
         print("No data for this timeframe.")
         continue
     df = indicator_pipeline(df)
-    features = ["wma","ema","rsi","cmo","willr","roc","hma","tema","adx","pline"]
+    features = [
+        "wma","ema","rsi","cmo","willr","roc","hma","tema","adx","pline",
+        "macd","macd_signal","volatility","volume_ratio","regime"
+    ]
     scaler = MinMaxScaler()
     X_ind = scaler.fit_transform(df[features])
     pca = PCA(n_components=3)
@@ -165,7 +176,6 @@ for ticker in tickers:
         actual_close = df.loc[date, "close"]
         if not open_trade:
             if curr_pred[i] > prev_pred[i]:
-                # BUY
                 entry_price = actual_close
                 entry_date = date
                 bars_in_trade = 0
