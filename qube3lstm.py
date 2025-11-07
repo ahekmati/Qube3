@@ -129,33 +129,42 @@ def has_open_long_position(ib, symbol):
     positions = ib.positions()
     return any(p.contract.symbol == symbol and p.position > 0 for p in positions)
 
-def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_pct, account):
+def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_pct, account, max_wait=30):
     contract = Stock(symbol, exchange, currency)
     ib.qualifyContracts(contract)
-    # Market Order (BUY)
     mkt_order = MarketOrder('BUY', qty)
     mkt_order.account = account
+    mkt_order.outsideRth = True
     trade = ib.placeOrder(contract, mkt_order)
-    print(f"Placed BUY market order {symbol} qty {qty}")
-    while not trade.orderStatus.status in ['Filled', 'Cancelled']:
+    print(f"Placed BUY market order for {symbol}, quantity {qty}. Waiting for fill or cancellation...")
+
+    waited = 0
+    while trade.orderStatus.status not in ['Filled', 'Cancelled'] and waited < max_wait:
+        print(f"  Current status: {trade.orderStatus.status} (waited {waited+1} seconds)")
         ib.sleep(1)
+        waited += 1
+
     if trade.orderStatus.status == 'Filled':
         avg_fill = trade.orderStatus.avgFillPrice
+        filled_qty = trade.orderStatus.filled
+        print(f"Order FILLED for {symbol}! Filled {filled_qty} at price {avg_fill:.2f}")
         tp_price = round(avg_fill * (1 + take_profit_pct), 2)
         sl_price = round(avg_fill * (1 - stop_loss_pct), 2)
-        # Limit Order (Take Profit)
         limit_order = LimitOrder('SELL', qty, tp_price, tif='GTC')
         limit_order.account = account
-        # Stop Order (Stop Loss)
+        limit_order.outsideRth = True
         stop_order = StopOrder('SELL', qty, sl_price, tif='GTC')
         stop_order.account = account
+        stop_order.outsideRth = True
         ib.placeOrder(contract, limit_order)
         ib.placeOrder(contract, stop_order)
         print(f"Placed GTC Limit (TP) @ {tp_price}, Stop @ {sl_price}")
         return True
+    elif trade.orderStatus.status == 'Cancelled':
+        print(f"Order CANCELLED for {symbol}.")
     else:
-        print("Order not filled or cancelled.")
-        return False
+        print(f"Order still not filled/cancelled after {max_wait} seconds. Status: {trade.orderStatus.status}")
+    return False
 
 def add_trend_filter(df, n_days=20, low_thresh=0.07):
     recent_low = df['close'].rolling(n_days).min()
@@ -165,6 +174,8 @@ def add_trend_filter(df, n_days=20, low_thresh=0.07):
 
 ib = IB()
 ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+
+n_bars_back = 2  # Number of daily bars to check for missed signals
 
 for ticker in tickers:
     print(f"\n==== {ticker} ====")
@@ -214,18 +225,17 @@ for ticker in tickers:
 
     position_open = has_open_long_position(ib, ticker)
 
-    # Signal/position loop: only fire next entry after exit
-    recent_entry = False
-
-    for i in range(len(prev_pred) - 1, len(prev_pred)):
+    # Check the last n_bars_back daily bars for signals
+    for i in range(len(prev_pred) - n_bars_back, len(prev_pred)):
         date = trade_dates[i+1]
         price = pred[i+1]
         actual_close = df.loc[date, "close"]
         if not position_open and curr_pred[i] > prev_pred[i] and df.loc[date, "not_too_far_from_low"]:
-            # Fire trade and mark position as open
-            print(f"{date} LIVE BUY @ {actual_close:.2f} for {ticker} (trend-respecting entry)")
+            print(f"{date} RECENT BUY SIGNAL (within last {n_bars_back} bars) @ {actual_close:.2f} for {ticker} (trend-respecting entry)")
             send_bracket_order(ib, ticker, quantity, actual_close, target_pct, stop_loss_pct, ACCOUNT)
-            position_open = True  # so only one trade at a time
+            position_open = True  # Don't re-enter for other bars; only open one new trade
+            break
         else:
-            print(f"{date} No new entry (still in trade or not all criteria met for {ticker}).")
+            print(f"{date} No entry for this bar (within last {n_bars_back} bars for {ticker}).")
+
 ib.disconnect()

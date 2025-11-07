@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 1, in <module>
+    from ib_insync import *
+ModuleNotFoundError: No module named 'ib_insync'
