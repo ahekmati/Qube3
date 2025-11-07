@@ -9,6 +9,7 @@ from tensorflow.keras.layers import LSTM, Conv1D, MaxPooling1D, Flatten, Dense
 IB_HOST = '127.0.0.1'
 IB_PORT = 4001
 IB_CLIENT_ID = 123
+ACCOUNT = 'U22816462'   # <-- Your IBKR Account
 
 tickers = ["TQQQ", "SSO"]
 exchange = "SMART"
@@ -128,10 +129,12 @@ def has_open_long_position(ib, symbol):
     positions = ib.positions()
     return any(p.contract.symbol == symbol and p.position > 0 for p in positions)
 
-def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_pct):
+def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_pct, account):
     contract = Stock(symbol, exchange, currency)
     ib.qualifyContracts(contract)
+    # Market Order (BUY)
     mkt_order = MarketOrder('BUY', qty)
+    mkt_order.account = account
     trade = ib.placeOrder(contract, mkt_order)
     print(f"Placed BUY market order {symbol} qty {qty}")
     while not trade.orderStatus.status in ['Filled', 'Cancelled']:
@@ -140,8 +143,12 @@ def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_
         avg_fill = trade.orderStatus.avgFillPrice
         tp_price = round(avg_fill * (1 + take_profit_pct), 2)
         sl_price = round(avg_fill * (1 - stop_loss_pct), 2)
+        # Limit Order (Take Profit)
         limit_order = LimitOrder('SELL', qty, tp_price, tif='GTC')
+        limit_order.account = account
+        # Stop Order (Stop Loss)
         stop_order = StopOrder('SELL', qty, sl_price, tif='GTC')
+        stop_order.account = account
         ib.placeOrder(contract, limit_order)
         ib.placeOrder(contract, stop_order)
         print(f"Placed GTC Limit (TP) @ {tp_price}, Stop @ {sl_price}")
@@ -217,7 +224,7 @@ for ticker in tickers:
         if not position_open and curr_pred[i] > prev_pred[i] and df.loc[date, "not_too_far_from_low"]:
             # Fire trade and mark position as open
             print(f"{date} LIVE BUY @ {actual_close:.2f} for {ticker} (trend-respecting entry)")
-            send_bracket_order(ib, ticker, quantity, actual_close, target_pct, stop_loss_pct)
+            send_bracket_order(ib, ticker, quantity, actual_close, target_pct, stop_loss_pct, ACCOUNT)
             position_open = True  # so only one trade at a time
         else:
             print(f"{date} No new entry (still in trade or not all criteria met for {ticker}).")
