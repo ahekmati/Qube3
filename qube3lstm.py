@@ -9,20 +9,22 @@ from tensorflow.keras.layers import LSTM, Conv1D, MaxPooling1D, Flatten, Dense
 IB_HOST = '127.0.0.1'
 IB_PORT = 4001
 IB_CLIENT_ID = 123
-ACCOUNT = 'U22816462'   # <-- Your IBKR Account
+ACCOUNT = 'U22816462'
 
 tickers = ["TQQQ", "SSO"]
 exchange = "SMART"
 currency = "USD"
 lookback = 30
-target_pct = 1.5
+target_pct = .85
 stop_loss_pct = 0.12
 max_bars_in_trade = 180
+max_hold_bars = 40      # new: hard exit after this many bars
 quantity = 1
 
 bar_size = "1 day"
 duration = "3 Y"
 tf_name = "DAILY"
+x_ATR_BE = 2  # move stop to breakeven+2% if x x ATR above entry
 
 def fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size):
     primary_map = {'TQQQ': 'NASDAQ', 'SSO': 'ARCA'}
@@ -123,6 +125,13 @@ def indicator_pipeline(df):
     df["tema"] = tema(df["close"], 14)
     df["adx"] = adx(df, 14)
     df["pline"] = pline(df["close"], 14)
+    # ---------- EXTREME EXHAUSTION/OVERBOUGHT INDICATORS ----------
+    atr_period = 14
+    df["ATR"] = (df["high"] - df["low"]).rolling(atr_period).mean()
+    # Overbought if RSI > 78 or close > recent high by threshold
+    lookback_high = 20
+    price_percent_above_high = ((df["close"] / df["high"].rolling(lookback_high).max()) - 1) * 100
+    df["overbought"] = ((df["rsi"] > 78) | (price_percent_above_high > 7)).astype(int)
     return df
 
 def has_open_long_position(ib, symbol):
@@ -159,18 +168,29 @@ def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_
         ib.placeOrder(contract, limit_order)
         ib.placeOrder(contract, stop_order)
         print(f"Placed GTC Limit (TP) @ {tp_price}, Stop @ {sl_price}")
-        return True
+        # Return trade info for later tracking
+        return {"avg_fill": avg_fill, "stop_order": stop_order, "entry_time": pd.Timestamp.now()}
     elif trade.orderStatus.status == 'Cancelled':
         print(f"Order CANCELLED for {symbol}.")
     else:
         print(f"Order still not filled/cancelled after {max_wait} seconds. Status: {trade.orderStatus.status}")
-    return False
+    return None
 
 def add_trend_filter(df, n_days=20, low_thresh=0.07):
     recent_low = df['close'].rolling(n_days).min()
     rel_to_low = (df['close'] - recent_low) / recent_low
     df['not_too_far_from_low'] = (rel_to_low < low_thresh).astype(int)
     return df
+
+def cancel_and_replace_stop(ib, contract, old_stop_order, qty, new_stop_price, account):
+    if old_stop_order:
+        ib.cancelOrder(old_stop_order)
+    stop_order = StopOrder('SELL', qty, new_stop_price, tif='GTC')
+    stop_order.account = account
+    stop_order.outsideRth = True
+    trade = ib.placeOrder(contract, stop_order)
+    print(f"Trailing stop moved to {new_stop_price:.2f}")
+    return trade
 
 ib = IB()
 ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
@@ -224,18 +244,54 @@ for ticker in tickers:
     curr_pred = pred[1:]
 
     position_open = has_open_long_position(ib, ticker)
+    trade_info = None
+    # Tracking trade info for new features
+    trade_duration = 0
+    stop_order = None
 
     # Check the last n_bars_back daily bars for signals
     for i in range(len(prev_pred) - n_bars_back, len(prev_pred)):
         date = trade_dates[i+1]
         price = pred[i+1]
         actual_close = df.loc[date, "close"]
-        if not position_open and curr_pred[i] > prev_pred[i] and df.loc[date, "not_too_far_from_low"]:
-            print(f"{date} RECENT BUY SIGNAL (within last {n_bars_back} bars) @ {actual_close:.2f} for {ticker} (trend-respecting entry)")
-            send_bracket_order(ib, ticker, quantity, actual_close, target_pct, stop_loss_pct, ACCOUNT)
-            position_open = True  # Don't re-enter for other bars; only open one new trade
-            break
+        # ========== EXIT CONDITIONS ==========
+        if position_open:
+            trade_duration += 1
+            # Exit if extreme exhaustion/overbought
+            if df.loc[date, "overbought"] == 1:
+                print(f"Overbought/exhaustion detected at {date} for {ticker}. Liquidating position.")
+                contract = Stock(ticker, exchange, currency)
+                mkt_exit = MarketOrder('SELL', quantity)
+                mkt_exit.account = ACCOUNT
+                ib.placeOrder(contract, mkt_exit)
+                position_open = False
+                continue
+            # Exit if max hold reached
+            if trade_duration >= max_hold_bars:
+                print(f"Max holding period ({max_hold_bars} bars) reached for {ticker}. Liquidating position.")
+                contract = Stock(ticker, exchange, currency)
+                mkt_exit = MarketOrder('SELL', quantity)
+                mkt_exit.account = ACCOUNT
+                ib.placeOrder(contract, mkt_exit)
+                position_open = False
+                continue
+            # ATR-based trailing stop adjustment
+            entry_price = trade_info["avg_fill"] if trade_info else actual_close
+            atr = df.loc[date, "ATR"]
+            if (actual_close - entry_price) > (x_ATR_BE * atr):
+                be_stop = round(entry_price * 1.02, 2)
+                contract = Stock(ticker, exchange, currency)
+                stop_order = cancel_and_replace_stop(ib, contract, stop_order, quantity, be_stop, ACCOUNT)
+                print(f"{date}: Stop loss updated to breakeven+2% after price moved {x_ATR_BE} ATR from entry.")
         else:
-            print(f"{date} No entry for this bar (within last {n_bars_back} bars for {ticker}).")
+            if curr_pred[i] > prev_pred[i] and df.loc[date, "not_too_far_from_low"]:
+                print(f"{date} RECENT BUY SIGNAL (within last {n_bars_back} bars) @ {actual_close:.2f} for {ticker} (trend-respecting entry)")
+                trade_info = send_bracket_order(ib, ticker, quantity, actual_close, target_pct, stop_loss_pct, ACCOUNT)
+                stop_order = trade_info["stop_order"] if trade_info else None
+                position_open = True
+                trade_duration = 0
+                break
+            else:
+                print(f"{date} No entry for this bar (within last {n_bars_back} bars for {ticker}).")
 
 ib.disconnect()
