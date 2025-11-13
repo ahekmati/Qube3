@@ -5,6 +5,9 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Conv1D, MaxPooling1D, Flatten, Dense
+from colorama import init, Fore, Style
+
+init(autoreset=True)
 
 IB_HOST = '127.0.0.1'
 IB_PORT = 4001
@@ -15,7 +18,7 @@ tickers = ["TQQQ", "SSO"]
 exchange = "SMART"
 currency = "USD"
 lookback = 30
-target_pct = .25
+target_pct = .35
 stop_loss_pct = 0.12
 max_bars_in_trade = 180
 max_hold_bars = 40
@@ -136,12 +139,26 @@ def has_open_long_position(ib, symbol):
     positions = ib.positions()
     return any(p.contract.symbol == symbol and p.position > 0 for p in positions)
 
+def get_symbol_stop_orders(ib, symbol, qty):
+    """
+    Returns all active/working GTC stop orders for that symbol and quantity.
+    """
+    stop_orders = []
+    for opent in ib.openTrades():
+        if (opent.contract.symbol == symbol and 
+            opent.order.orderType.upper() == 'STP' and
+            opent.order.action == 'SELL' and
+            int(opent.order.totalQuantity) == int(qty) and
+            opent.order.tif.upper() == 'GTC'):
+            stop_orders.append(opent)
+    return stop_orders
+
 def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_pct, account, max_wait=5):
     contract = Stock(symbol, exchange, currency)
     ib.qualifyContracts(contract)
     mkt_order = MarketOrder('BUY', qty)
     mkt_order.account = account
-    mkt_order.outsideRth = True   # <-- pre/post market allowed
+    mkt_order.outsideRth = True
     trade = ib.placeOrder(contract, mkt_order)
     print(f"Placed BUY market order for {symbol}, quantity {qty}. Waiting for fill or cancellation...")
 
@@ -166,7 +183,7 @@ def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_
         ib.placeOrder(contract, limit_order)
         ib.placeOrder(contract, stop_order)
         print(f"Placed GTC Limit (TP) @ {tp_price}, Stop @ {sl_price}")
-        return {"avg_fill": avg_fill, "stop_order": stop_order, "entry_time": pd.Timestamp.now()}
+        return {"avg_fill": avg_fill, "stop_price": sl_price, "stop_order": stop_order, "entry_time": pd.Timestamp.now()}
     elif trade.orderStatus.status == 'Cancelled':
         print(f"Order CANCELLED for {symbol}.")
     else:
@@ -251,7 +268,6 @@ for ticker in tickers:
         date = trade_dates[i+1]
         price = pred[i+1]
         actual_close = df.loc[date, "close"]
-        # Exit logic
         if position_open:
             trade_duration += 1
             if df.loc[date, "overbought"] == 1:
@@ -274,15 +290,24 @@ for ticker in tickers:
                 continue
             entry_price = trade_info["avg_fill"] if trade_info else actual_close
             atr = df.loc[date, "ATR"]
-            if (actual_close - entry_price) > (x_ATR_BE * atr):
-                be_stop = round(entry_price * 1.02, 2)
+            # Robust stop-loss: ONLY 1 stop order for this position
+            open_stop_orders = get_symbol_stop_orders(ib, ticker, quantity)
+            if not open_stop_orders:
+                stop_price = round(entry_price * (1 - stop_loss_pct), 2)
                 contract = Stock(ticker, exchange, currency)
-                stop_order = cancel_and_replace_stop(ib, contract, stop_order, quantity, be_stop, ACCOUNT)
-                print(f"{date}: Stop loss updated to breakeven+2% after price moved {x_ATR_BE} ATR from entry.")
+                new_stop = StopOrder('SELL', quantity, stop_price, tif='GTC')
+                new_stop.account = ACCOUNT
+                new_stop.outsideRth = True
+                ib.placeOrder(contract, new_stop)
+                stop_price_print = stop_price
+                print(Fore.YELLOW + f"Placed new stop loss for {ticker} at {stop_price:.2f}")
+            else:
+                stop_price_print = open_stop_orders[0].order.auxPrice
+            print(Fore.GREEN + Style.BRIGHT +
+                  f"OPEN POSITION {ticker} | ENTRY: {entry_price:.2f} | LAST: {actual_close:.2f} | STOP: {stop_price_print}")
         else:
             if curr_pred[i] > prev_pred[i] and df.loc[date, "not_too_far_from_low"]:
                 print(f"{date} RECENT BUY SIGNAL (within last {n_bars_back} bars) @ {actual_close:.2f} for {ticker} (trend-respecting entry)")
-                # Try to place and fill the order, but move on if not filled in 5 seconds
                 trade_info = send_bracket_order(ib, ticker, quantity, actual_close, target_pct, stop_loss_pct, ACCOUNT, max_wait=5)
                 stop_order = trade_info["stop_order"] if trade_info else None
                 if not trade_info:
