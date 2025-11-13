@@ -15,16 +15,16 @@ tickers = ["TQQQ", "SSO"]
 exchange = "SMART"
 currency = "USD"
 lookback = 30
-target_pct = .85
+target_pct = .25
 stop_loss_pct = 0.12
 max_bars_in_trade = 180
-max_hold_bars = 40      # new: hard exit after this many bars
+max_hold_bars = 40
 quantity = 1
 
 bar_size = "1 day"
 duration = "3 Y"
 tf_name = "DAILY"
-x_ATR_BE = 2  # move stop to breakeven+2% if x x ATR above entry
+x_ATR_BE = 2
 
 def fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size):
     primary_map = {'TQQQ': 'NASDAQ', 'SSO': 'ARCA'}
@@ -125,10 +125,8 @@ def indicator_pipeline(df):
     df["tema"] = tema(df["close"], 14)
     df["adx"] = adx(df, 14)
     df["pline"] = pline(df["close"], 14)
-    # ---------- EXTREME EXHAUSTION/OVERBOUGHT INDICATORS ----------
     atr_period = 14
     df["ATR"] = (df["high"] - df["low"]).rolling(atr_period).mean()
-    # Overbought if RSI > 78 or close > recent high by threshold
     lookback_high = 20
     price_percent_above_high = ((df["close"] / df["high"].rolling(lookback_high).max()) - 1) * 100
     df["overbought"] = ((df["rsi"] > 78) | (price_percent_above_high > 7)).astype(int)
@@ -138,12 +136,12 @@ def has_open_long_position(ib, symbol):
     positions = ib.positions()
     return any(p.contract.symbol == symbol and p.position > 0 for p in positions)
 
-def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_pct, account, max_wait=30):
+def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_pct, account, max_wait=5):
     contract = Stock(symbol, exchange, currency)
     ib.qualifyContracts(contract)
     mkt_order = MarketOrder('BUY', qty)
     mkt_order.account = account
-    mkt_order.outsideRth = True
+    mkt_order.outsideRth = True   # <-- pre/post market allowed
     trade = ib.placeOrder(contract, mkt_order)
     print(f"Placed BUY market order for {symbol}, quantity {qty}. Waiting for fill or cancellation...")
 
@@ -168,7 +166,6 @@ def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_
         ib.placeOrder(contract, limit_order)
         ib.placeOrder(contract, stop_order)
         print(f"Placed GTC Limit (TP) @ {tp_price}, Stop @ {sl_price}")
-        # Return trade info for later tracking
         return {"avg_fill": avg_fill, "stop_order": stop_order, "entry_time": pd.Timestamp.now()}
     elif trade.orderStatus.status == 'Cancelled':
         print(f"Order CANCELLED for {symbol}.")
@@ -195,7 +192,7 @@ def cancel_and_replace_stop(ib, contract, old_stop_order, qty, new_stop_price, a
 ib = IB()
 ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
 
-n_bars_back = 2  # Number of daily bars to check for missed signals
+n_bars_back = 2
 
 for ticker in tickers:
     print(f"\n==== {ticker} ====")
@@ -245,37 +242,36 @@ for ticker in tickers:
 
     position_open = has_open_long_position(ib, ticker)
     trade_info = None
-    # Tracking trade info for new features
     trade_duration = 0
     stop_order = None
 
-    # Check the last n_bars_back daily bars for signals
+    trade_taken = False
+
     for i in range(len(prev_pred) - n_bars_back, len(prev_pred)):
         date = trade_dates[i+1]
         price = pred[i+1]
         actual_close = df.loc[date, "close"]
-        # ========== EXIT CONDITIONS ==========
+        # Exit logic
         if position_open:
             trade_duration += 1
-            # Exit if extreme exhaustion/overbought
             if df.loc[date, "overbought"] == 1:
                 print(f"Overbought/exhaustion detected at {date} for {ticker}. Liquidating position.")
                 contract = Stock(ticker, exchange, currency)
                 mkt_exit = MarketOrder('SELL', quantity)
                 mkt_exit.account = ACCOUNT
+                mkt_exit.outsideRth = True
                 ib.placeOrder(contract, mkt_exit)
                 position_open = False
                 continue
-            # Exit if max hold reached
             if trade_duration >= max_hold_bars:
                 print(f"Max holding period ({max_hold_bars} bars) reached for {ticker}. Liquidating position.")
                 contract = Stock(ticker, exchange, currency)
                 mkt_exit = MarketOrder('SELL', quantity)
                 mkt_exit.account = ACCOUNT
+                mkt_exit.outsideRth = True
                 ib.placeOrder(contract, mkt_exit)
                 position_open = False
                 continue
-            # ATR-based trailing stop adjustment
             entry_price = trade_info["avg_fill"] if trade_info else actual_close
             atr = df.loc[date, "ATR"]
             if (actual_close - entry_price) > (x_ATR_BE * atr):
@@ -286,12 +282,21 @@ for ticker in tickers:
         else:
             if curr_pred[i] > prev_pred[i] and df.loc[date, "not_too_far_from_low"]:
                 print(f"{date} RECENT BUY SIGNAL (within last {n_bars_back} bars) @ {actual_close:.2f} for {ticker} (trend-respecting entry)")
-                trade_info = send_bracket_order(ib, ticker, quantity, actual_close, target_pct, stop_loss_pct, ACCOUNT)
+                # Try to place and fill the order, but move on if not filled in 5 seconds
+                trade_info = send_bracket_order(ib, ticker, quantity, actual_close, target_pct, stop_loss_pct, ACCOUNT, max_wait=5)
                 stop_order = trade_info["stop_order"] if trade_info else None
+                if not trade_info:
+                    print(f"No trade filled for {ticker} within 5 seconds, moving to next ticker.")
+                    trade_taken = False
+                    break
                 position_open = True
                 trade_duration = 0
+                trade_taken = True
                 break
             else:
                 print(f"{date} No entry for this bar (within last {n_bars_back} bars for {ticker}).")
+
+    if position_open and not trade_taken:
+        print(f"No new trade for {ticker} because a position is already open.")
 
 ib.disconnect()
