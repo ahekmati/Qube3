@@ -1,27 +1,36 @@
 from ib_insync import *
 import pandas as pd
 import numpy as np
+import pandas_ta as ta
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, LSTM, Conv1D, MaxPooling1D, Flatten, Dense
 from colorama import init, Fore, Style
+import csv
+import os
 
 init(autoreset=True)
 
-IB_HOST = '127.0.0.1'
-IB_PORT = 4001
-IB_CLIENT_ID = 123
+# Configurable thresholds
+LSTM_BUY_THRESHOLD = 0.010    # 1% up
+LSTM_SELL_THRESHOLD = -0.010  # 1% down
+RSI_OVERBOUGHT = 80
+RSI_OVERSOLD = 20
+ADX_TREND = 25
+BB_PCTB_HIGH = 0.96
+BB_PCTB_LOW = 0.04
+CROSS_SCORE_REQUIRED = 3   # At least 2/3 agree with model for strong filter
 
-tickers = ['QQQ','SPY','UDOW','TNA','NVDL','SVXY','SVOL','VXX']
+tickers = ["QQQ", "SPY"]
 exchange = "SMART"
 currency = "USD"
 lookback = 30
 bar_size = "1 day"
 duration = "3 Y"
+ma_cross_pairs = [(5,20), (9,21), (10,50), (20,50), (50,200)]
 
 def fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size):
-    primary_map = {'TQQQ': 'NASDAQ', 'SSO': 'ARCA'}
-    contract = Stock(ticker, exchange, currency, primaryExchange=primary_map.get(ticker, 'NASDAQ'))
+    contract = Stock(ticker, exchange, currency)
     bars = ib.reqHistoricalData(
         contract,
         endDateTime='',
@@ -37,84 +46,91 @@ def fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size):
     df = df.rename(columns=str.lower).set_index('date')
     return df
 
+def add_crossovers(df, ma_cross_pairs, prefix=""):
+    for fast, slow in ma_cross_pairs:
+        fcol, scol = f"{prefix}ema{fast}", f"{prefix}ema{slow}"
+        up_col = f"{prefix}ma{fast}_{slow}_cross_up"
+        dn_col = f"{prefix}ma{fast}_{slow}_cross_down"
+        df[up_col] = ((df[fcol].shift(1) < df[scol].shift(1)) & (df[fcol] > df[scol])).astype(int)
+        df[dn_col] = ((df[fcol].shift(1) > df[scol].shift(1)) & (df[fcol] < df[scol])).astype(int)
+    return df
+
 def indicator_pipeline(df):
-    def wma(series, period):
-        weights = np.arange(1, period+1)
-        return series.rolling(period).apply(lambda x: np.dot(x, weights)/weights.sum(), raw=True)
-    def hma(series, period):
-        wmaf = wma(series, period//2)
-        wmas = wma(series, period)
-        raw_hma = 2 * wmaf - wmas
-        return wma(raw_hma, int(np.sqrt(period)))
-    def tema(series, period):
-        ema1 = series.ewm(span=period, adjust=False).mean()
-        ema2 = ema1.ewm(span=period, adjust=False).mean()
-        ema3 = ema2.ewm(span=period, adjust=False).mean()
-        return 3*ema1 - 3*ema2 + ema3
-    def roc(series, period):
-        return 100 * (series - series.shift(period)) / (series.shift(period) + 1e-10)
-    def adx(df, period):
-        high = df["high"]
-        low = df["low"]
-        close = df["close"]
-        plus_dm = high.diff()
-        minus_dm = low.diff().abs()
-        tr1 = high - low
-        tr2 = (high - close.shift()).abs()
-        tr3 = (low - close.shift()).abs()
-        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-        atr = tr.rolling(window=period).mean()
-        plus_di = 100 * (plus_dm.ewm(span=period, min_periods=period).mean() / atr)
-        minus_di = 100 * (minus_dm.ewm(span=period, min_periods=period).mean() / atr)
-        dx = (abs(plus_di - minus_di) / (plus_di + minus_di + 1e-10)) * 100
-        adxv = dx.ewm(span=period, min_periods=period).mean()
-        return adxv
-    def rsi(series, period):
-        delta = series.diff()
-        up, down = delta.clip(lower=0), -delta.clip(upper=0)
-        ma_up = up.ewm(com=(period - 1), min_periods=period).mean()
-        ma_down = down.ewm(com=(period - 1), min_periods=period).mean()
-        rs = ma_up / (ma_down + 1e-10)
-        return 100 - (100 / (1 + rs))
-    df["wma"] = wma(df["close"], 14)
-    df["ema"] = df["close"].ewm(span=14).mean()
-    df["roc"] = roc(df["close"], 14)
-    df["adx"] = adx(df, 14)
-    df["rsi"] = rsi(df["close"], 14)
+    for fast, slow in ma_cross_pairs:
+        df[f"ema{fast}"] = df['close'].ewm(span=fast, adjust=False).mean()
+        df[f"ema{slow}"] = df['close'].ewm(span=slow, adjust=False).mean()
+    df["rsi"] = ta.rsi(df["close"], 14)
+    macd = ta.macd(df["close"])
+    df["macd"], df["macdsignal"], df["macdhist"] = macd["MACD_12_26_9"], macd["MACDs_12_26_9"], macd["MACDh_12_26_9"]
+    bb = ta.bbands(df["close"])
+    try:
+        bbu, bbl = [c for c in bb.columns if "BBU" in c][0], [c for c in bb.columns if "BBL" in c][0]
+        df['bb_upper'], df['bb_lower'] = bb[bbu], bb[bbl]
+        df['bb_pctb'] = (df['close'] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'])
+    except Exception:
+        df['bb_upper'], df['bb_lower'], df['bb_pctb'] = np.nan, np.nan, np.nan
+    df['atr'] = ta.atr(df['high'], df['low'], df['close'])
+    df['adx'] = ta.adx(df['high'], df['low'], df['close'])['ADX_14']
+    try:
+        df['obv'] = ta.obv(df['close'], df['volume'])
+    except Exception:
+        df['obv'] = np.nan
+    try:
+        df['vwap'] = ta.vwap(df['high'], df['low'], df['close'], df['volume'])
+    except Exception:
+        df['vwap'] = np.nan
+    df["roc"] = ta.roc(df["close"], 10)
+    df["volume_norm"] = df["volume"] / df["volume"].rolling(20).mean()
+    df = add_crossovers(df, ma_cross_pairs)
     return df
 
-def add_classic_signals(df):
-    ema_fast = 20
-    ema_slow = 50
-    ema_short_slow = 70
-    z_window = 20
-    z_thresh_long = -0.5
-    z_thresh_short = 0.7
-    df['ema_fast'] = df['close'].ewm(span=ema_fast, adjust=False).mean()
-    df['ema_slow'] = df['close'].ewm(span=ema_slow, adjust=False).mean()
-    std20 = df['close'].rolling(z_window).std()
-    dip_z = (df['close'] - df['ema_fast']) / std20
-    df['buy_the_dip'] = ((df['close'] < df['ema_slow']) & (dip_z < z_thresh_long)).astype(int)
-    df['ema_70'] = df['close'].ewm(span=ema_short_slow, adjust=False).mean()
-    rally_z = (df['close'] - df['ema_fast']) / std20
-    df['sell_the_rally'] = ((df['ema_fast'] < df['ema_70']) & (df['close'] > df['ema_70']) & (rally_z >= z_thresh_short)).astype(int)
-    return df
-
-def resample_4h(df):
+def resample_4h_and_enrich(df):
     df_4h = df.resample('4h').agg({
-        'open': 'first',
-        'high': 'max',
-        'low': 'min',
-        'close': 'last',
-        'volume': 'sum'
+        'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
     }).dropna()
     df_4h = indicator_pipeline(df_4h)
+    df_4h = add_crossovers(df_4h, ma_cross_pairs)
+    df_4h = df_4h.rename(columns={c: f"4h_{c}" for c in df_4h.columns})
     return df_4h
 
-ib = IB()
-ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
-lookback = 30
+def indicator_agreement(direction, rsi, macd, adx, bb_pctb, cross_sum):
+    agree = 0
+    if direction == 'buy':
+        if rsi is not None and rsi < RSI_OVERSOLD:
+            agree += 1
+        if macd is not None and macd > 0:
+            agree += 1
+        if adx is not None and adx > ADX_TREND:
+            agree += 1
+        if bb_pctb is not None and bb_pctb < BB_PCTB_LOW:
+            agree += 1
+        agree += cross_sum
+    elif direction == 'sell':
+        if rsi is not None and rsi > RSI_OVERBOUGHT:
+            agree += 1
+        if macd is not None and macd < 0:
+            agree += 1
+        if adx is not None and adx > ADX_TREND:
+            agree += 1
+        if bb_pctb is not None and bb_pctb > BB_PCTB_HIGH:
+            agree += 1
+        agree += cross_sum
+    return agree
 
+def log_to_csv(filename, row):
+    exists = os.path.isfile(filename)
+    with open(filename, 'a', newline='') as f:
+        w = csv.writer(f)
+        if not exists:
+            w.writerow(list(row.keys()))
+        w.writerow(list(row.values()))
+
+ib = IB()
+IB_HOST = '127.0.0.1'
+IB_PORT = 4001
+IB_CLIENT_ID = 123
+
+ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
 for ticker in tickers:
     print(f"\n==== {ticker} ====")
     df = fetch_ibkr_ohlcv(ib, ticker, exchange, currency, duration, bar_size)
@@ -123,84 +139,125 @@ for ticker in tickers:
         continue
     df.index = pd.to_datetime(df.index)
     df = indicator_pipeline(df)
-    df = add_classic_signals(df)
-    df_4h = resample_4h(df)
+    df_4h = resample_4h_and_enrich(df)
     df_4h_ff = df_4h.reindex(df.index, method='ffill')
-    for col in ['wma', 'ema', 'roc', 'adx', 'rsi']:
-        df[f'4h_{col}'] = df_4h_ff[col]
+    for col in df_4h.columns:
+        df[col] = df_4h_ff[col]
     features = [
-        "wma","ema","roc","adx","ema_fast","ema_slow","ema_70",
-        "buy_the_dip","sell_the_rally","rsi",
-        "4h_wma","4h_ema","4h_roc","4h_adx","4h_rsi"
+        "close", "high", "low", "volume_norm", "obv", "vwap", "rsi", "macd", "macdsignal", "macdhist",
+        "bb_upper", "bb_lower", "bb_pctb", "atr", "adx", "roc"
     ]
-    df = df.dropna(subset=features)
-    scaler = MinMaxScaler()
-    X_ind = scaler.fit_transform(df[features])
-    X_seq, y_seq = [], []
-    close = df["close"].values
-    for i in range(lookback, len(X_ind)):
-        seq_x = X_ind[i - lookback:i]
-        X_seq.append(seq_x)
-        y_seq.append(close[i])
-    X_seq, y_seq = np.array(X_seq), np.array(y_seq)
-    if len(X_seq) < 10:
-        print("Not enough data after indicators for ML fit.")
+    for fast, slow in ma_cross_pairs:
+         features.append(f"ma{fast}_{slow}_cross_up")
+         features.append(f"ma{fast}_{slow}_cross_down")
+         features.append(f"4h_ma{fast}_{slow}_cross_up")
+         features.append(f"4h_ma{fast}_{slow}_cross_down")
+    for ind in ['rsi','macd','macdsignal','macdhist','bb_upper','bb_lower','bb_pctb','atr','adx','roc','volume_norm']:
+        features.append(f"4h_{ind}")
+    features_present = [f for f in features if f in df.columns]
+    missing = [f for f in features if f not in df.columns]
+    if missing:
+        print(f"Warning: Missing columns in DataFrame and will skip dropna on them: {missing}")
+    df = df.dropna(subset=features_present)
+    if df.empty or len(df) < lookback + 2:
+        print("Not enough data after filtering and indicators.")
         continue
-    split_idx = int(len(X_seq) * 0.8)
+    scaler = MinMaxScaler()
+    X = scaler.fit_transform(df[features_present])
+    y = df["close"].values
+    X_seq, y_seq = [], []
+    for i in range(lookback, len(df)):
+        X_seq.append(X[i-lookback:i])
+        y_seq.append(y[i])
+    X_seq, y_seq = np.array(X_seq), np.array(y_seq)
+    split_idx = int(len(X_seq)*0.8)
     X_train, X_test = X_seq[:split_idx], X_seq[split_idx:]
     y_train, y_test = y_seq[:split_idx], y_seq[split_idx:]
     model = Sequential()
     model.add(Input(shape=(lookback, X_seq.shape[2])))
-    model.add(LSTM(50, return_sequences=True, activation='tanh'))
-    model.add(Conv1D(25, kernel_size=2, padding='same', activation='relu'))
+    model.add(LSTM(32, return_sequences=True, activation='tanh'))
+    model.add(Conv1D(32, 2, padding='same', activation='relu'))
     model.add(MaxPooling1D(pool_size=2))
     model.add(Flatten())
-    model.add(Dense(15, activation='relu'))
+    model.add(Dense(20, activation='relu'))
     model.add(Dense(1, activation='linear'))
     model.compile(optimizer='adam', loss='mse')
-    model.fit(X_train, y_train, epochs=12, batch_size=32, validation_data=(X_test, y_test), verbose=0)
-    proba = model.predict(X_test[-1:])[0][0]
-    last_close = y_test[-1]
-    signals = []
-    tf_labels = []
-    prices = []
+    model.fit(X_train, y_train, epochs=8, batch_size=32, validation_data=(X_test, y_test), verbose=0)
+    pred = model.predict(X_test[-2:]).flatten()
+    pred_move = (pred[-1] - pred[-2]) / abs(pred[-2])
+    actual_close = y_test[-1]
 
-    # Daily timeframe logic
-    if (df['rsi'].iloc[-1] < 15):
-        signals.append("EXTREME OVERSOLD (daily)")
-        tf_labels.append("daily")
-        prices.append(f"{last_close:.2f}")
-    if (df['rsi'].iloc[-1] > 80):
-        signals.append("EXTREME OVERBOUGHT (daily)")
-        tf_labels.append("daily")
-        prices.append(f"{last_close:.2f}")
-    if (df['buy_the_dip'].iloc[-1] == 1 and proba > last_close*1.01):
-        signals.append("BUY SIGNAL (daily)")
-        tf_labels.append("daily")
-        prices.append(f"{last_close:.2f}")
-    if (df['sell_the_rally'].iloc[-1] == 1 and proba < last_close*0.99):
-        signals.append("EXTREME SELL SIGNAL (daily)")
-        tf_labels.append("daily")
-        prices.append(f"{last_close:.2f}")
-    # 4H logic
-    if (df['4h_rsi'].iloc[-1] < 15):
-        signals.append("EXTREME OVERSOLD (4h)")
-        tf_labels.append("4h")
-        prices.append(f"{df['close'].iloc[-1]:.2f}")
-    if (df['4h_rsi'].iloc[-1] > 80):
-        signals.append("EXTREME OVERBOUGHT (4h)")
-        tf_labels.append("4h")
-        prices.append(f"{df['close'].iloc[-1]:.2f}")
-    if (df['4h_ema'].iloc[-1] and last_close > (df['4h_ema'].iloc[-1] + 2*df['4h_ema'].rolling(10).std().iloc[-1]) and proba < last_close*0.98):
-        signals.append("EXTREME SELL SIGNAL (4h)")
-        tf_labels.append("4h")
-        prices.append(f"{last_close:.2f}")
-    # Summary printing
-    if signals:
-        for i, sig in enumerate(signals):
-            print(Fore.YELLOW + Style.BRIGHT + f"{sig} at price {prices[i]}")
-        print("Triggered timeframes: " + ", ".join(sorted(set(tf_labels))))
+    # Collect latest indicator values (None if missing)
+    D = df.iloc[-1]
+    D4 = df.iloc[-1]  # Holds 4h columns too after ffill
+    card = dict(
+        Model_Pred="{:.2%}".format(pred_move), Close="{:.2f}".format(actual_close),
+        RSI="{:.2f}".format(D.get('rsi', np.nan)), MACD="{:.2f}".format(D.get('macd', np.nan)),
+        ADX="{:.2f}".format(D.get('adx', np.nan)), BB_PctB="{:.2f}".format(D.get('bb_pctb', np.nan)),
+        RSI_4H="{:.2f}".format(D4.get('4h_rsi', np.nan)), MACD_4H="{:.2f}".format(D4.get('4h_macd', np.nan)),
+        ADX_4H="{:.2f}".format(D4.get('4h_adx', np.nan)), BB_PctB_4H="{:.2f}".format(D4.get('4h_bb_pctb', np.nan))
+    )
+
+    print(Style.BRIGHT + "DASHBOARD:", " | ".join(f"{k}: {v}" for k,v in card.items()))
+
+    # Agreement logic (daily)
+    cross_agree = 0
+    for fast, slow in ma_cross_pairs:
+        cross_up = D.get(f"ma{fast}_{slow}_cross_up", 0)
+        cross_dn = D.get(f"ma{fast}_{slow}_cross_down", 0)
+        if pred_move > 0:
+            cross_agree += int(cross_up)
+        elif pred_move < 0:
+            cross_agree += int(cross_dn)
+    
+    # Agreement logic (4h)
+    cross_4h_agree = 0
+    for fast, slow in ma_cross_pairs:
+        cross_up = D4.get(f"4h_ma{fast}_{slow}_cross_up", 0)
+        cross_dn = D4.get(f"4h_ma{fast}_{slow}_cross_down", 0)
+        if pred_move > 0:
+            cross_4h_agree += int(cross_up)
+        elif pred_move < 0:
+            cross_4h_agree += int(cross_dn)
+
+    direction = 'buy' if pred_move > 0 else 'sell'
+    agree_score = indicator_agreement(direction, D.get('rsi'), D.get('macd'), D.get('adx'), D.get('bb_pctb'), cross_agree)
+    agree_4h_score = indicator_agreement(direction, D4.get('4h_rsi'), D4.get('4h_macd'), D4.get('4h_adx'), D4.get('4h_bb_pctb'), cross_4h_agree)
+    # Print all
+    print(f"Agreement score (daily): {agree_score} | Agreement score (4h): {agree_4h_score} (of ~5)")
+    # Signal summary
+    filter_msg = None
+    if pred_move > LSTM_BUY_THRESHOLD and agree_score >= CROSS_SCORE_REQUIRED:
+        print(Fore.GREEN + Style.BRIGHT + "STRONG BUY FILTER: LSTM & KEY INDICATORS AGREE (Daily)")
+        filter_msg = "Strong Buy Daily"
+    elif pred_move < LSTM_SELL_THRESHOLD and agree_score >= CROSS_SCORE_REQUIRED:
+        print(Fore.RED + Style.BRIGHT + "STRONG SELL FILTER: LSTM & KEY INDICATORS AGREE (Daily)")
+        filter_msg = "Strong Sell Daily"
+    elif pred_move > LSTM_BUY_THRESHOLD and agree_4h_score >= CROSS_SCORE_REQUIRED:
+        print(Fore.GREEN + Style.BRIGHT + "STRONG BUY FILTER: LSTM & INDICATORS AGREE (4H)")
+        filter_msg = "Strong Buy 4h"
+    elif pred_move < LSTM_SELL_THRESHOLD and agree_4h_score >= CROSS_SCORE_REQUIRED:
+        print(Fore.RED + Style.BRIGHT + "STRONG SELL FILTER: LSTM & INDICATORS AGREE (4H)")
+        filter_msg = "Strong Sell 4h"
     else:
-        print("No strong buy/sell or extreme condition today.")
+        print(Fore.WHITE + "No strong agreement filter signal today.")
+        filter_msg = "No strong signal"
+    # CSV LOG/ROLLING TRACK
+    log_to_csv(f"{ticker}_filter_signals.csv", {
+        "date": D.name,
+        "close": actual_close,
+        "pred_move": pred_move,
+        "rsi": D.get('rsi', np.nan),
+        "macd": D.get('macd', np.nan),
+        "adx": D.get('adx', np.nan),
+        "bb_pctb": D.get('bb_pctb', np.nan),
+        "rsi_4h": D4.get('4h_rsi', np.nan),
+        "macd_4h": D4.get('4h_macd', np.nan),
+        "adx_4h": D4.get('4h_adx', np.nan),
+        "bb_pctb_4h": D4.get('4h_bb_pctb', np.nan),
+        "agree_score": agree_score,
+        "agree_4h_score": agree_4h_score,
+        "filter_signal": filter_msg
+    })
 
 ib.disconnect()
