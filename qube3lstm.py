@@ -14,12 +14,12 @@ IB_PORT = 4001
 IB_CLIENT_ID = 123
 ACCOUNT = 'U22816462'
 
-tickers = ["TQQQ", "SSO"]
+tickers = ["TQQQ", "SSO",'UDOW','TNA','QTUM','NVDL','SVXY','QDTE','SVOL','VXX']
 exchange = "SMART"
 currency = "USD"
 lookback = 30
-target_pct = .35
-stop_loss_pct = 0.12
+target_pct = .75
+stop_loss_pct = 0.05
 max_bars_in_trade = 180
 max_hold_bars = 40
 quantity = 1

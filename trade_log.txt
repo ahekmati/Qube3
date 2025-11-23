@@ -90,3 +90,1028 @@ Traceback (most recent call last):
   File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
     raise OSError(err, f'Connect call failed {address}')
 ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-13 11:00:02.944575: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-13 11:00:02.991794: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-13 11:00:04.359265: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-13 14:00:02.331392: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-13 14:00:02.373485: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-13 14:00:03.492261: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-13 17:00:02.298907: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-13 17:00:02.344574: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-13 17:00:03.472647: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-14 11:21:11.590664: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-14 11:21:11.630767: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-14 11:21:12.773247: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-14 17:52:30.164655: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-14 17:52:30.207299: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-14 17:52:31.284555: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+
+==== TQQQ ====
+2025-11-14 17:52:33.445045: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: UNKNOWN ERROR (303)
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 85ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 23ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step
+OPEN POSITION TQQQ | ENTRY: 104.70 | LAST: 104.70 | STOP: 92.14
+OPEN POSITION TQQQ | ENTRY: 105.37 | LAST: 105.37 | STOP: 92.14
+No new trade for TQQQ because a position is already open.
+
+==== SSO ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 89ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 22ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step
+OPEN POSITION SSO | ENTRY: 113.27 | LAST: 113.27 | STOP: 102.49
+OPEN POSITION SSO | ENTRY: 113.38 | LAST: 113.38 | STOP: 102.49
+No new trade for SSO because a position is already open.
+
+==== UDOW ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+WARNING:tensorflow:5 out of the last 11 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x75505863a020> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 89ms/stepWARNING:tensorflow:5 out of the last 11 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x75505863a020> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 23ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step
+Placed new stop loss for UDOW at 99.82
+OPEN POSITION UDOW | ENTRY: 113.43 | LAST: 113.43 | STOP: 99.82
+OPEN POSITION UDOW | ENTRY: 111.05 | LAST: 111.05 | STOP: 99.82
+No new trade for UDOW because a position is already open.
+
+==== TNA ====
+Error 201, reqId 151: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.
+Canceled order: Trade(contract=Stock(symbol='UDOW', exchange='SMART', currency='USD'), order=StopOrder(orderId=151, clientId=123, permId=553166442, action='SELL', totalQuantity=1.0, lmtPrice=99.85, auxPrice=99.82, tif='GTC', outsideRth=True, account='U22816462'), orderStatus=OrderStatus(orderId=151, status='Cancelled', filled=0.0, remaining=1.0, avgFillPrice=0.0, permId=553166442, parentId=0, lastFillPrice=0.0, clientId=123, whyHeld='', mktCapPrice=0.0), fills=[], log=[TradeLogEntry(time=datetime.datetime(2025, 11, 14, 22, 52, 43, 789666, tzinfo=datetime.timezone.utc), status='PendingSubmit', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 14, 22, 52, 44, 352994, tzinfo=datetime.timezone.utc), status='Inactive', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 14, 22, 52, 44, 353441, tzinfo=datetime.timezone.utc), status='Cancelled', message='Error 201, reqId 151: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.', errorCode=201)], advancedError='')
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 92ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 23ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step
+2025-11-13 No entry for this bar (within last 2 bars for TNA).
+2025-11-14 No entry for this bar (within last 2 bars for TNA).
+2025-11-17 08:00:02.680448: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-17 08:00:02.721175: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-17 08:00:03.787699: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+open orders request timed out
+completed orders request timed out
+account updates for U12554027 request timed out
+account updates for U22816462 request timed out
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1782, in connectAsync
+    await asyncio.wait_for(self.reqExecutionsAsync(), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 519, in wait_for
+    async with timeouts.timeout(timeout):
+  File "/usr/lib/python3.12/asyncio/timeouts.py", line 115, in __aexit__
+    raise TimeoutError from exc_val
+TimeoutError
+2025-11-18 08:00:02.973852: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-18 08:00:03.017922: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-18 08:00:04.182201: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-18 11:16:13.902573: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-18 11:16:14.310622: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-18 11:16:16.409930: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-18 14:00:03.459516: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-18 14:00:03.506811: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-18 14:00:04.718645: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-18 17:33:44.466748: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-18 17:33:44.505752: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-18 17:33:45.559825: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-19 08:13:46.562075: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-19 08:13:46.600854: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-19 08:13:47.663596: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-19 11:00:02.534743: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-19 11:00:02.573158: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-19 11:00:03.620642: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-19 14:00:02.364223: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-19 14:00:02.404602: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-19 14:00:03.526912: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+
+==== TQQQ ====
+2025-11-19 14:00:06.690962: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: UNKNOWN ERROR (303)
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 86ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 23ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step
+OPEN POSITION TQQQ | ENTRY: 97.95 | LAST: 97.95 | STOP: 92.14
+OPEN POSITION TQQQ | ENTRY: 98.94 | LAST: 98.94 | STOP: 92.14
+No new trade for TQQQ because a position is already open.
+
+==== SSO ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 95ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 22ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step
+OPEN POSITION SSO | ENTRY: 108.96 | LAST: 108.96 | STOP: 102.49
+OPEN POSITION SSO | ENTRY: 109.52 | LAST: 109.52 | STOP: 102.49
+No new trade for SSO because a position is already open.
+
+==== UDOW ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+WARNING:tensorflow:5 out of the last 11 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x7bd98010e0c0> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 88ms/stepWARNING:tensorflow:5 out of the last 11 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x7bd98010e0c0> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 23ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step
+OPEN POSITION UDOW | ENTRY: 103.50 | LAST: 103.50 | STOP: 93.95
+OPEN POSITION UDOW | ENTRY: 103.17 | LAST: 103.17 | STOP: 93.95
+No new trade for UDOW because a position is already open.
+
+==== TNA ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 88ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 23ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step
+2025-11-18 No entry for this bar (within last 2 bars for TNA).
+2025-11-19 No entry for this bar (within last 2 bars for TNA).
+
+==== QTUM ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 89ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 22ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step
+2025-11-18 No entry for this bar (within last 2 bars for QTUM).
+2025-11-19 No entry for this bar (within last 2 bars for QTUM).
+
+==== NVDL ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 92ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 22ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step
+2025-11-18 No entry for this bar (within last 2 bars for NVDL).
+2025-11-19 No entry for this bar (within last 2 bars for NVDL).
+
+==== SVXY ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 90ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 22ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step
+2025-11-18 No entry for this bar (within last 2 bars for SVXY).
+2025-11-19 No entry for this bar (within last 2 bars for SVXY).
+
+==== QDTE ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/3 ━━━━━━━━━━━━━━━━━━━━ 0s 90ms/step3/3 ━━━━━━━━━━━━━━━━━━━━ 0s 43ms/step3/3 ━━━━━━━━━━━━━━━━━━━━ 0s 47ms/step
+2025-11-18 RECENT BUY SIGNAL (within last 2 bars) @ 34.00 for QDTE (trend-respecting entry)
+Placed BUY market order for QDTE, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+Order FILLED for QDTE! Filled 1.0 at price 34.28
+Placed GTC Limit (TP) @ 59.99, Stop @ 32.57
+
+==== SVOL ====
+Error 201, reqId 195: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.
+Canceled order: Trade(contract=Stock(conId=688829913, symbol='QDTE', exchange='SMART', primaryExchange='BATS', currency='USD', localSymbol='QDTE', tradingClass='QDTE'), order=StopOrder(orderId=195, clientId=123, permId=28437549, action='SELL', totalQuantity=1.0, lmtPrice=32.6, auxPrice=32.57, tif='GTC', outsideRth=True, account='U22816462'), orderStatus=OrderStatus(orderId=195, status='Cancelled', filled=0.0, remaining=1.0, avgFillPrice=0.0, permId=28437549, parentId=0, lastFillPrice=0.0, clientId=123, whyHeld='', mktCapPrice=0.0), fills=[], log=[TradeLogEntry(time=datetime.datetime(2025, 11, 19, 19, 0, 38, 649342, tzinfo=datetime.timezone.utc), status='PendingSubmit', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 19, 19, 0, 38, 967097, tzinfo=datetime.timezone.utc), status='Inactive', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 19, 19, 0, 38, 969372, tzinfo=datetime.timezone.utc), status='Cancelled', message='Error 201, reqId 195: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.', errorCode=201)], advancedError='')
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 91ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step
+2025-11-18 RECENT BUY SIGNAL (within last 2 bars) @ 17.30 for SVOL (trend-respecting entry)
+Placed BUY market order for SVOL, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+Order FILLED for SVOL! Filled 1.0 at price 17.04
+Placed GTC Limit (TP) @ 29.82, Stop @ 16.19
+
+==== VXX ====
+Error 201, reqId 200: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.
+Canceled order: Trade(contract=Stock(conId=490852665, symbol='SVOL', exchange='SMART', primaryExchange='ARCA', currency='USD', localSymbol='SVOL', tradingClass='SVOL'), order=StopOrder(orderId=200, clientId=123, permId=28437552, action='SELL', totalQuantity=1.0, lmtPrice=16.220000000000002, auxPrice=16.19, tif='GTC', outsideRth=True, account='U22816462'), orderStatus=OrderStatus(orderId=200, status='Cancelled', filled=0.0, remaining=1.0, avgFillPrice=0.0, permId=28437552, parentId=0, lastFillPrice=0.0, clientId=123, whyHeld='', mktCapPrice=0.0), fills=[], log=[TradeLogEntry(time=datetime.datetime(2025, 11, 19, 19, 0, 44, 590750, tzinfo=datetime.timezone.utc), status='PendingSubmit', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 19, 19, 0, 45, 13423, tzinfo=datetime.timezone.utc), status='Inactive', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 19, 19, 0, 45, 13831, tzinfo=datetime.timezone.utc), status='Cancelled', message='Error 201, reqId 200: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.', errorCode=201)], advancedError='')
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 93ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step
+2025-11-18 No entry for this bar (within last 2 bars for VXX).
+2025-11-19 No entry for this bar (within last 2 bars for VXX).
+2025-11-19 17:00:03.160546: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-19 17:00:03.205914: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-19 17:00:04.519597: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+
+==== TQQQ ====
+2025-11-19 17:00:08.151368: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: UNKNOWN ERROR (303)
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 90ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 27ms/step
+OPEN POSITION TQQQ | ENTRY: 97.95 | LAST: 97.95 | STOP: 92.14
+OPEN POSITION TQQQ | ENTRY: 102.96 | LAST: 102.96 | STOP: 92.14
+No new trade for TQQQ because a position is already open.
+
+==== SSO ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 97ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step
+OPEN POSITION SSO | ENTRY: 108.96 | LAST: 108.96 | STOP: 102.49
+OPEN POSITION SSO | ENTRY: 111.08 | LAST: 111.08 | STOP: 102.49
+No new trade for SSO because a position is already open.
+
+==== UDOW ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+WARNING:tensorflow:5 out of the last 11 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x7ba2807a6160> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 93ms/stepWARNING:tensorflow:5 out of the last 11 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x7ba2807a6160> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step
+OPEN POSITION UDOW | ENTRY: 103.50 | LAST: 103.50 | STOP: 93.95
+OPEN POSITION UDOW | ENTRY: 104.10 | LAST: 104.10 | STOP: 93.95
+No new trade for UDOW because a position is already open.
+
+==== TNA ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 93ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 23ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step
+2025-11-18 No entry for this bar (within last 2 bars for TNA).
+2025-11-19 No entry for this bar (within last 2 bars for TNA).
+
+==== QTUM ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 91ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step
+2025-11-18 No entry for this bar (within last 2 bars for QTUM).
+2025-11-19 No entry for this bar (within last 2 bars for QTUM).
+
+==== NVDL ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 94ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 27ms/step
+2025-11-18 No entry for this bar (within last 2 bars for NVDL).
+2025-11-19 No entry for this bar (within last 2 bars for NVDL).
+
+==== SVXY ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 93ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 24ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 26ms/step
+2025-11-18 No entry for this bar (within last 2 bars for SVXY).
+2025-11-19 No entry for this bar (within last 2 bars for SVXY).
+
+==== QDTE ====
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/3 ━━━━━━━━━━━━━━━━━━━━ 0s 93ms/step3/3 ━━━━━━━━━━━━━━━━━━━━ 0s 46ms/step3/3 ━━━━━━━━━━━━━━━━━━━━ 0s 51ms/step
+Placed new stop loss for QDTE at 32.30
+OPEN POSITION QDTE | ENTRY: 34.00 | LAST: 34.00 | STOP: 32.3
+OPEN POSITION QDTE | ENTRY: 34.69 | LAST: 34.69 | STOP: 32.3
+No new trade for QDTE because a position is already open.
+
+==== SVOL ====
+Error 201, reqId 228: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.
+Canceled order: Trade(contract=Stock(symbol='QDTE', exchange='SMART', currency='USD'), order=StopOrder(orderId=228, clientId=123, permId=28437560, action='SELL', totalQuantity=1.0, lmtPrice=32.33, auxPrice=32.3, tif='GTC', outsideRth=True, account='U22816462'), orderStatus=OrderStatus(orderId=228, status='Cancelled', filled=0.0, remaining=1.0, avgFillPrice=0.0, permId=28437560, parentId=0, lastFillPrice=0.0, clientId=123, whyHeld='', mktCapPrice=0.0), fills=[], log=[TradeLogEntry(time=datetime.datetime(2025, 11, 19, 22, 0, 38, 297669, tzinfo=datetime.timezone.utc), status='PendingSubmit', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 19, 22, 0, 38, 929697, tzinfo=datetime.timezone.utc), status='Inactive', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 19, 22, 0, 38, 930338, tzinfo=datetime.timezone.utc), status='Cancelled', message='Error 201, reqId 228: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.', errorCode=201)], advancedError='')
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 95ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 27ms/step
+Placed new stop loss for SVOL at 16.43
+OPEN POSITION SVOL | ENTRY: 17.30 | LAST: 17.30 | STOP: 16.43
+OPEN POSITION SVOL | ENTRY: 17.24 | LAST: 17.24 | STOP: 16.43
+No new trade for SVOL because a position is already open.
+
+==== VXX ====
+Error 201, reqId 230: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.
+Canceled order: Trade(contract=Stock(symbol='SVOL', exchange='SMART', currency='USD'), order=StopOrder(orderId=230, clientId=123, permId=28437561, action='SELL', totalQuantity=1.0, lmtPrice=16.46, auxPrice=16.43, tif='GTC', outsideRth=True, account='U22816462'), orderStatus=OrderStatus(orderId=230, status='Cancelled', filled=0.0, remaining=1.0, avgFillPrice=0.0, permId=28437561, parentId=0, lastFillPrice=0.0, clientId=123, whyHeld='', mktCapPrice=0.0), fills=[], log=[TradeLogEntry(time=datetime.datetime(2025, 11, 19, 22, 0, 42, 366490, tzinfo=datetime.timezone.utc), status='PendingSubmit', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 19, 22, 0, 42, 876377, tzinfo=datetime.timezone.utc), status='Inactive', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 11, 19, 22, 0, 42, 876736, tzinfo=datetime.timezone.utc), status='Cancelled', message='Error 201, reqId 230: Order rejected - reason:Your order is not accepted. Minimum of 2000 USD (or equivalent in other currencies) required in order to sell <br>short.', errorCode=201)], advancedError='')
+/home/ronin/Qube3/.venv/lib/python3.12/site-packages/keras/src/layers/rnn/rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+1/5 ━━━━━━━━━━━━━━━━━━━━ 0s 96ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 25ms/step5/5 ━━━━━━━━━━━━━━━━━━━━ 0s 27ms/step
+2025-11-18 No entry for this bar (within last 2 bars for VXX).
+2025-11-19 No entry for this bar (within last 2 bars for VXX).
+2025-11-20 08:00:02.979222: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-20 08:00:03.021038: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-20 08:00:04.171302: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+open orders request timed out
+completed orders request timed out
+account updates for U12554027 request timed out
+account updates for U22816462 request timed out
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1782, in connectAsync
+    await asyncio.wait_for(self.reqExecutionsAsync(), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 519, in wait_for
+    async with timeouts.timeout(timeout):
+  File "/usr/lib/python3.12/asyncio/timeouts.py", line 115, in __aexit__
+    raise TimeoutError from exc_val
+TimeoutError
+2025-11-20 11:00:03.046286: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-20 11:00:03.087122: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-20 11:00:04.183620: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+open orders request timed out
+completed orders request timed out
+account updates for U12554027 request timed out
+account updates for U22816462 request timed out
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1782, in connectAsync
+    await asyncio.wait_for(self.reqExecutionsAsync(), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 519, in wait_for
+    async with timeouts.timeout(timeout):
+  File "/usr/lib/python3.12/asyncio/timeouts.py", line 115, in __aexit__
+    raise TimeoutError from exc_val
+TimeoutError
+2025-11-20 14:00:02.927060: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-20 14:00:02.968105: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-20 14:00:04.042622: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+open orders request timed out
+completed orders request timed out
+account updates for U12554027 request timed out
+account updates for U22816462 request timed out
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1782, in connectAsync
+    await asyncio.wait_for(self.reqExecutionsAsync(), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 519, in wait_for
+    async with timeouts.timeout(timeout):
+  File "/usr/lib/python3.12/asyncio/timeouts.py", line 115, in __aexit__
+    raise TimeoutError from exc_val
+TimeoutError
+2025-11-20 17:00:02.765510: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-20 17:00:02.804813: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-20 17:00:03.885148: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+open orders request timed out
+completed orders request timed out
+account updates for U12554027 request timed out
+account updates for U22816462 request timed out
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1782, in connectAsync
+    await asyncio.wait_for(self.reqExecutionsAsync(), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 519, in wait_for
+    async with timeouts.timeout(timeout):
+  File "/usr/lib/python3.12/asyncio/timeouts.py", line 115, in __aexit__
+    raise TimeoutError from exc_val
+TimeoutError
+2025-11-21 08:06:24.831418: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-21 08:06:25.153915: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-21 08:06:26.845555: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-21 11:00:02.966153: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-21 11:00:03.013626: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-21 11:00:04.251396: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-21 14:16:36.459724: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-21 14:16:36.500876: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-21 14:16:37.701276: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+2025-11-21 17:00:02.809197: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-11-21 17:00:02.853195: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-21 17:00:03.978406: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+API connection failed: ConnectionRefusedError(111, "Connect call failed ('127.0.0.1', 4001)")
+Make sure API port on TWS/IBG is open
+Traceback (most recent call last):
+  File "/home/ronin/Qube3/qube3lstm.py", line 210, in <module>
+    ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 279, in connect
+    return self._run(self.connectAsync(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 318, in _run
+    return util.run(*awaitables, timeout=self.RequestTimeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/util.py", line 341, in run
+    result = loop.run_until_complete(task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/ib.py", line 1748, in connectAsync
+    await self.client.connectAsync(host, port, clientId, timeout)
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/client.py", line 211, in connectAsync
+    await asyncio.wait_for(self.conn.connectAsync(host, port), timeout)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/ronin/Qube3/.venv/lib/python3.12/site-packages/ib_insync/connection.py", line 39, in connectAsync
+    self.transport, _ = await loop.create_connection(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1122, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1104, in create_connection
+    sock = await self._connect_sock(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1007, in _connect_sock
+    await self.sock_connect(sock, address)
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 651, in sock_connect
+    return await fut
+           ^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
+    raise OSError(err, f'Connect call failed {address}')
+ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
