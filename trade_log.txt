@@ -1115,3 +1115,128 @@ Traceback (most recent call last):
   File "/usr/lib/python3.12/asyncio/selector_events.py", line 691, in _sock_connect_cb
     raise OSError(err, f'Connect call failed {address}')
 ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 4001)
+
+==== TQQQ ====
+2025-11-24 08:05:19.076238: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: UNKNOWN ERROR (303)
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 92ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 101ms/step
+2025-11-21 00:00:00 No entry for this bar (within last 2 bars for TQQQ).
+2025-11-24 00:00:00 RECENT BUY SIGNAL on Daily (within last 2 bars) @ 48.52 for TQQQ (trend-respecting entry)
+Placed BUY market order for TQQQ, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+  Current status: Submitted (waited 2 seconds)
+  Current status: Submitted (waited 3 seconds)
+  Current status: Submitted (waited 4 seconds)
+  Current status: Submitted (waited 5 seconds)
+Order still not filled/cancelled after 5 seconds. Status: Submitted
+No trade filled for TQQQ within 5 seconds, moving to next ticker.
+
+==== SSO ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 98ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 108ms/step
+2025-11-21 00:00:00 No entry for this bar (within last 2 bars for SSO).
+2025-11-24 00:00:00 RECENT BUY SIGNAL on Daily (within last 2 bars) @ 54.77 for SSO (trend-respecting entry)
+Placed BUY market order for SSO, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+  Current status: Submitted (waited 2 seconds)
+  Current status: Submitted (waited 3 seconds)
+  Current status: Submitted (waited 4 seconds)
+  Current status: Submitted (waited 5 seconds)
+Order still not filled/cancelled after 5 seconds. Status: Submitted
+No trade filled for SSO within 5 seconds, moving to next ticker.
+
+==== UDOW ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 92ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 102ms/step
+2025-11-21 00:00:00 RECENT BUY SIGNAL on Daily (within last 2 bars) @ 52.40 for UDOW (trend-respecting entry)
+Placed BUY market order for UDOW, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+  Current status: Submitted (waited 2 seconds)
+  Current status: Submitted (waited 3 seconds)
+  Current status: Submitted (waited 4 seconds)
+  Current status: Submitted (waited 5 seconds)
+Order still not filled/cancelled after 5 seconds. Status: Submitted
+No trade filled for UDOW within 5 seconds, moving to next ticker.
+
+==== TNA ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 97ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 107ms/step
+2025-11-21 00:00:00 No entry for this bar (within last 2 bars for TNA).
+2025-11-24 00:00:00 RECENT BUY SIGNAL on Daily (within last 2 bars) @ 40.56 for TNA (trend-respecting entry)
+Placed BUY market order for TNA, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+  Current status: Submitted (waited 2 seconds)
+  Current status: Submitted (waited 3 seconds)
+  Current status: Submitted (waited 4 seconds)
+  Current status: Submitted (waited 5 seconds)
+Order still not filled/cancelled after 5 seconds. Status: Submitted
+No trade filled for TNA within 5 seconds, moving to next ticker.
+
+==== QTUM ====
+WARNING:tensorflow:5 out of the last 5 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x78b9341a36a0> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 109ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 120ms/step
+2025-11-21 00:00:00 No entry for this bar (within last 2 bars for QTUM).
+2025-11-24 00:00:00 RECENT BUY SIGNAL on Daily (within last 2 bars) @ 102.33 for QTUM (trend-respecting entry)
+Placed BUY market order for QTUM, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+  Current status: Submitted (waited 2 seconds)
+  Current status: Submitted (waited 3 seconds)
+  Current status: Submitted (waited 4 seconds)
+  Current status: Submitted (waited 5 seconds)
+Order still not filled/cancelled after 5 seconds. Status: Submitted
+No trade filled for QTUM within 5 seconds, moving to next ticker.
+
+==== NVDL ====
+WARNING:tensorflow:6 out of the last 6 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x78b914595940> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 97ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 107ms/step
+2025-11-21 00:00:00 No entry for this bar (within last 2 bars for NVDL).
+2025-11-24 00:00:00 RECENT BUY SIGNAL on Daily (within last 2 bars) @ 83.63 for NVDL (trend-respecting entry)
+Placed BUY market order for NVDL, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+  Current status: Submitted (waited 2 seconds)
+  Current status: Submitted (waited 3 seconds)
+  Current status: Submitted (waited 4 seconds)
+  Current status: Submitted (waited 5 seconds)
+Order still not filled/cancelled after 5 seconds. Status: Submitted
+No trade filled for NVDL within 5 seconds, moving to next ticker.
+
+==== SVXY ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 105ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 116ms/step
+2025-11-21 00:00:00 No entry for this bar (within last 2 bars for SVXY).
+2025-11-24 00:00:00 RECENT BUY SIGNAL on Daily (within last 2 bars) @ 47.09 for SVXY (trend-respecting entry)
+Placed BUY market order for SVXY, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+  Current status: Submitted (waited 2 seconds)
+  Current status: Submitted (waited 3 seconds)
+  Current status: Submitted (waited 4 seconds)
+  Current status: Submitted (waited 5 seconds)
+Order still not filled/cancelled after 5 seconds. Status: Submitted
+No trade filled for SVXY within 5 seconds, moving to next ticker.
+
+==== QDTE ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 106ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 117ms/step
+Placed new stop loss for QDTE at 32.17
+OPEN POSITION QDTE | ENTRY: 33.86 | LAST: 33.86 | STOP: 32.17
+OPEN POSITION QDTE | ENTRY: 33.97 | LAST: 33.97 | STOP: 32.17
+No new trade for QDTE because a position is already open.
+
+==== SVOL ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 132ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 143ms/step
+2025-11-21 00:00:00 No entry for this bar (within last 2 bars for SVOL).
+2025-11-24 00:00:00 RECENT BUY SIGNAL on Daily (within last 2 bars) @ 16.80 for SVOL (trend-respecting entry)
+Placed BUY market order for SVOL, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+  Current status: Submitted (waited 2 seconds)
+  Current status: Submitted (waited 3 seconds)
+  Current status: Submitted (waited 4 seconds)
+  Current status: Submitted (waited 5 seconds)
+Order still not filled/cancelled after 5 seconds. Status: Submitted
+No trade filled for SVOL within 5 seconds, moving to next ticker.
+
+==== VXX ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 100ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 110ms/step
+2025-11-21 00:00:00 RECENT BUY SIGNAL on Daily (within last 2 bars) @ 37.25 for VXX (trend-respecting entry)
+Placed BUY market order for VXX, quantity 1. Waiting for fill or cancellation...
+  Current status: PendingSubmit (waited 1 seconds)
+  Current status: Submitted (waited 2 seconds)
+  Current status: Submitted (waited 3 seconds)
+  Current status: Submitted (waited 4 seconds)
+  Current status: Submitted (waited 5 seconds)
+Order still not filled/cancelled after 5 seconds. Status: Submitted
+No trade filled for VXX within 5 seconds, moving to next ticker.

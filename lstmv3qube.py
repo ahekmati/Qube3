@@ -17,7 +17,7 @@ IB_PORT = 4001
 IB_CLIENT_ID = 123
 ACCOUNT = 'U22816462'
 
-tickers = ["TQQQ", "SSO", "UDOW", "TNA", "QTUM", "NVDL", "SVXY", "QDTE", "SVOL", "VXX"]
+tickers = ["TQQQ", "SSO", "UDOW", "TNA", "QTUM", "NVDL", "SVXY", "QDTE", "SVOL"]
 exchange = "SMART"
 currency = "USD"
 lookback = 30
@@ -26,12 +26,12 @@ stop_loss_pct = 0.05
 max_hold_bars = 40
 order_size = 1
 
-duration_daily = "3 Y"
+duration_daily = "6 Y"
 duration_4h = "90 D"
+ATR_TRAIL_MULT = 1.5  # ATR trailing stop multiplier
 
-# Only require essential features for merge
 ESSENTIAL_FEATURES = [
-    'rsi', 'ema10', 'vwap', 'position_vs_low',
+    'rsi', 'ema10', 'vwap', 'position_vs_low', 'atr',
     'rsi_4h', 'ema10_4h', 'vwap_4h', 'position_vs_low_4h'
 ]
 
@@ -70,7 +70,6 @@ def robust_indicators(df, ma_list_override=None):
         ma_dict[f'tema{w}'] = ta.tema(df['close'], length=w)
     ma_df = pd.DataFrame(ma_dict, index=df.index)
     df = pd.concat([df, ma_df], axis=1)
-
     ma_pairs = [(fast, slow) for fast in ma_list for slow in ma_list if fast < slow]
     crossover_dict = {}
     for mtype in ["ema", "sma", "wma"]:
@@ -84,7 +83,6 @@ def robust_indicators(df, ma_list_override=None):
                 continue
     crossover_df = pd.DataFrame(crossover_dict, index=df.index)
     df = pd.concat([df, crossover_df], axis=1)
-
     fragments = []
     fragments.append(pd.DataFrame({"rsi": ta.rsi(df["close"], 14)}, index=df.index))
     fragments.append(pd.DataFrame({"cmo": ta.cmo(df["close"], 14)}, index=df.index))
@@ -133,7 +131,7 @@ def get_symbol_stop_orders(ib, symbol, qty):
             opent.order.tif.upper() == 'GTC')
     ]
 
-def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_pct, account, max_wait=5):
+def send_bracket_order(ib, symbol, qty, entry_price, target_pct, stop_loss_pct, account, max_wait=5):
     contract = Stock(symbol, exchange, currency)
     ib.qualifyContracts(contract)
     mkt_order = MarketOrder('BUY', qty)
@@ -150,7 +148,9 @@ def send_bracket_order(ib, symbol, qty, entry_price, take_profit_pct, stop_loss_
         avg_fill = trade.orderStatus.avgFillPrice
         filled_qty = trade.orderStatus.filled
         print(f"Order FILLED for {symbol}! Filled {filled_qty} at price {avg_fill:.2f}")
-        tp_price = round(avg_fill * (1 + take_profit_pct), 2)
+        ib.sleep(5)  # Wait 5 seconds before placing exits
+
+        tp_price = round(avg_fill * (1 + target_pct), 2)
         sl_price = round(avg_fill * (1 - stop_loss_pct), 2)
         limit_order = LimitOrder('SELL', qty, tp_price, tif='GTC')
         limit_order.account = account
@@ -184,13 +184,11 @@ for ticker in tickers:
 
     daily_df = robust_indicators(daily_df, ma_list_override=[5, 9, 10, 13, 20])
     fourh_df = robust_indicators(fourh_df, ma_list_override=[5, 9, 10, 13, 20]).add_suffix('_4h')
-
     daily_df = localize_and_sort_index(daily_df)
     fourh_df = localize_and_sort_index(fourh_df)
 
     merge_df = daily_df.copy()
     merge_df = merge_df.join(fourh_df.resample('1D').last(), how='left')
-
     available_essential = [c for c in ESSENTIAL_FEATURES if c in merge_df.columns]
     merge_df = merge_df.dropna(subset=available_essential)
     if merge_df.empty or len(merge_df) < lookback + 2:
@@ -236,11 +234,44 @@ for ticker in tickers:
         date = trade_dates[i+1]
         price = pred[i+1]
         actual_close = merge_df.loc[date, "close"]
+        latest_atr = merge_df.loc[date, 'atr'] if 'atr' in merge_df.columns else None
         signal_source = "Daily"
-        # Example: if you want to check a 4h condition for the entry, you could also compare e.g. rsi_4h, etc.
-        # signal_source = "4-hour" if merge_df.loc[date, "rsi_4h"] > merge_df.loc[date, "rsi"] else "Daily"
         if position_open:
             trade_duration += 1
+
+            open_stop_orders = get_symbol_stop_orders(ib, ticker, order_size)
+            stop_price_print = None
+
+            # ATR trailing stop logic
+            if latest_atr is not None and open_stop_orders:
+                last_stop = open_stop_orders[0].order.auxPrice
+                new_stop = round(max(last_stop, actual_close - ATR_TRAIL_MULT * latest_atr), 2)
+                if new_stop > last_stop + 1e-4:
+                    print(Fore.MAGENTA + f"Adjusting trailing stop for {ticker} to {new_stop:.2f}")
+                    contract = Stock(ticker, exchange, currency)
+                    ib.cancelOrder(open_stop_orders[0].order)
+                    new_stop_order = StopOrder('SELL', order_size, new_stop, tif='GTC')
+                    new_stop_order.account = ACCOUNT
+                    new_stop_order.outsideRth = True
+                    ib.placeOrder(contract, new_stop_order)
+                    stop_price_print = new_stop
+                else:
+                    stop_price_print = last_stop
+            else:
+                if open_stop_orders:
+                    stop_price_print = open_stop_orders[0].order.auxPrice
+                else:
+                    stop_price = round(actual_close * (1 - stop_loss_pct), 2)
+                    contract = Stock(ticker, exchange, currency)
+                    new_stop = StopOrder('SELL', order_size, stop_price, tif='GTC')
+                    new_stop.account = ACCOUNT
+                    new_stop.outsideRth = True
+                    ib.placeOrder(contract, new_stop)
+                    stop_price_print = stop_price
+
+            print(Fore.GREEN + Style.BRIGHT +
+                  f"OPEN POSITION {ticker} | LAST: {actual_close:.2f} | STOP: {stop_price_print}")
+
             if merge_df.loc[date, "overbought"] == 1:
                 print(f"Overbought/exhaustion detected at {date} for {ticker}. Liquidating position.")
                 contract = Stock(ticker, exchange, currency)
@@ -259,25 +290,13 @@ for ticker in tickers:
                 ib.placeOrder(contract, mkt_exit)
                 position_open = False
                 continue
-            entry_price = trade_info["avg_fill"] if trade_info else actual_close
-            open_stop_orders = get_symbol_stop_orders(ib, ticker, order_size)
-            if not open_stop_orders:
-                stop_price = round(entry_price * (1 - stop_loss_pct), 2)
-                contract = Stock(ticker, exchange, currency)
-                new_stop = StopOrder('SELL', order_size, stop_price, tif='GTC')
-                new_stop.account = ACCOUNT
-                new_stop.outsideRth = True
-                ib.placeOrder(contract, new_stop)
-                stop_price_print = stop_price
-                print(Fore.YELLOW + f"Placed new stop loss for {ticker} at {stop_price:.2f}")
-            else:
-                stop_price_print = open_stop_orders[0].order.auxPrice
-            print(Fore.GREEN + Style.BRIGHT +
-                  f"OPEN POSITION {ticker} | ENTRY: {entry_price:.2f} | LAST: {actual_close:.2f} | STOP: {stop_price_print}")
+
         else:
             if curr_pred[i] > prev_pred[i] and merge_df.loc[date, "position_vs_low"] > -0.05:
                 print(Fore.CYAN + f"{date} RECENT BUY SIGNAL on {signal_source} (within last {n_bars_back} bars) @ {actual_close:.2f} for {ticker} (trend-respecting entry)")
-                trade_info = send_bracket_order(ib, ticker, order_size, actual_close, target_pct, stop_loss_pct, ACCOUNT, max_wait=5)
+                trade_info = send_bracket_order(
+                    ib, ticker, order_size, actual_close, target_pct, stop_loss_pct, ACCOUNT, max_wait=5
+                )
                 stop_order = trade_info["stop_order"] if trade_info else None
                 if not trade_info:
                     print(Fore.RED + Style.BRIGHT + f"No trade filled for {ticker} within 5 seconds, moving to next ticker.")
@@ -290,7 +309,6 @@ for ticker in tickers:
             else:
                 print(Fore.YELLOW + Style.BRIGHT +
                       f"{date} No entry for this bar (within last {n_bars_back} bars for {ticker}).")
-
     if position_open and not trade_taken:
         print(f"No new trade for {ticker} because a position is already open.")
 
