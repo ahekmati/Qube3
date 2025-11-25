@@ -7,7 +7,7 @@ tickers = ['TQQQ', 'SSO']
 exchange = 'ARCA'
 currency = 'USD'
 period = '60 D'
-candle_sizes = ['8 hours']
+candle_sizes = ['8 hours','4 hours','2 hours','1 hour']
 ema_fast = 20
 ema_slow = 50
 ema_short_slow = 70
@@ -171,6 +171,11 @@ for symbol in tickers:
         latest_long_fill = None
         latest_short_fill = None
 
+        # Position check before any order: get current position
+        positions = ib.positions()
+        has_long = any(p.contract.symbol == symbol and p.position > 0 for p in positions)
+        has_short = any(p.contract.symbol == symbol and p.position < 0 for p in positions)
+
         for idx, row in signals.iterrows():
             is_recent_long = (row['signal'] == 'BUY') and (idx in recent_candles)
             is_recent_short = (row['signal'] == 'SELL') and (idx in recent_candles)
@@ -179,12 +184,15 @@ for symbol in tickers:
             else:
                 print(f"{idx.strftime('%Y-%m-%d %H:%M')}: {row['signal']} @ {row['close']:.2f} | Not recent (<{signal_max_age} candles) - no trade placed.")
 
-            if is_recent_long:
+            # Only submit a new trade if not already open in that direction
+            if is_recent_long and not has_long and not has_short:
                 latest_long_fill = place_market_bracket_order(symbol, 'BUY', quantity, take_profit_pct, stop_loss_pct)
                 found_long = True
-            elif is_recent_short:
+                has_long = True  # Update status after trade
+            elif is_recent_short and not has_short and not has_long:
                 latest_short_fill = place_market_bracket_order(symbol, 'SELL', quantity, take_profit_pct, stop_loss_pct)
                 found_short = True
+                has_short = True  # Update status after trade
 
         if found_long and latest_long_fill:
             print(f"Long trade executed for {symbol} at {latest_long_fill:.2f}")

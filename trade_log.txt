@@ -1240,3 +1240,66 @@ Placed BUY market order for VXX, quantity 1. Waiting for fill or cancellation...
   Current status: Submitted (waited 5 seconds)
 Order still not filled/cancelled after 5 seconds. Status: Submitted
 No trade filled for VXX within 5 seconds, moving to next ticker.
+
+==== TQQQ ====
+2025-11-24 15:50:08.059058: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: UNKNOWN ERROR (303)
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 116ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 128ms/step
+OPEN POSITION TQQQ | LAST: 47.95 | STOP: 45.55
+Adjusting trailing stop for TQQQ to 45.95
+OPEN POSITION TQQQ | LAST: 51.16 | STOP: 45.95
+No new trade for TQQQ because a position is already open.
+
+==== SSO ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 105ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 117ms/step
+OPEN POSITION SSO | LAST: 54.45 | STOP: 51.77
+Adjusting trailing stop for SSO to 53.27
+OPEN POSITION SSO | LAST: 55.94 | STOP: 53.27
+No new trade for SSO because a position is already open.
+
+==== UDOW ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 106ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 117ms/step
+OPEN POSITION UDOW | LAST: 52.40 | STOP: 49.78
+OPEN POSITION UDOW | LAST: 52.96 | STOP: 49.78
+No new trade for UDOW because a position is already open.
+
+==== TNA ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 109ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 120ms/step
+OPEN POSITION TNA | LAST: 40.46 | STOP: 38.44
+OPEN POSITION TNA | LAST: 42.37 | STOP: 38.44
+No new trade for TNA because a position is already open.
+
+==== QTUM ====
+WARNING:tensorflow:5 out of the last 5 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x7625183dc680> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 123ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 135ms/step
+OPEN POSITION QTUM | LAST: 102.55 | STOP: 97.92
+Adjusting trailing stop for QTUM to 98.96
+OPEN POSITION QTUM | LAST: 104.73 | STOP: 98.96
+No new trade for QTUM because a position is already open.
+
+==== NVDL ====
+WARNING:tensorflow:6 out of the last 6 calls to <function TensorFlowTrainer.make_predict_function.<locals>.one_step_on_data_distributed at 0x762518c41bc0> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 110ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 121ms/step
+OPEN POSITION NVDL | LAST: 83.87 | STOP: 79.68
+OPEN POSITION NVDL | LAST: 84.84 | STOP: 79.68
+No new trade for NVDL because a position is already open.
+
+==== SVXY ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 112ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 123ms/step
+OPEN POSITION SVXY | LAST: 46.95 | STOP: 45.78
+Adjusting trailing stop for SVXY to 45.94
+OPEN POSITION SVXY | LAST: 48.42 | STOP: 45.94
+No new trade for SVXY because a position is already open.
+
+==== QDTE ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 95ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 105ms/step
+OPEN POSITION QDTE | LAST: 33.86 | STOP: 32.78
+Adjusting trailing stop for QDTE to 33.43
+OPEN POSITION QDTE | LAST: 34.51 | STOP: 33.43
+No new trade for QDTE because a position is already open.
+
+==== SVOL ====
+1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 94ms/step1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 103ms/step
+OPEN POSITION SVOL | LAST: 16.72 | STOP: 15.99
+Adjusting trailing stop for SVOL to 16.50
+OPEN POSITION SVOL | LAST: 17.25 | STOP: 16.5
+No new trade for SVOL because a position is already open.
