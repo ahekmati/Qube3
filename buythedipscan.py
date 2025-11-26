@@ -7,17 +7,21 @@ import json
 import os
 from datetime import datetime
 
+
 init(autoreset=True)
+
 
 IB_HOST = '127.0.0.1'
 IB_PORT = 4001
 IB_CLIENT_ID = 13
 ACCOUNT_ID = 'U22816462'
 
+
 # Trade these symbols live
 symbols = ['TQQQ', 'SSO']
 exchange = 'SMART'
 currency = 'USD'
+
 
 # Empirical averages (you can refine later with TQQQ/SSO-specific stats)
 EXPECTED = {
@@ -27,6 +31,7 @@ EXPECTED = {
     ('SSO',  '4H'): {'avg_dip': -2.57, 'avg_reb': 1.68},
 }
 
+
 # Sizeable-dip thresholds (rule-based)
 DIP_THRESHOLDS = {
     ('TQQQ', '1D'): -2.0,
@@ -35,18 +40,22 @@ DIP_THRESHOLDS = {
     ('SSO',  '4H'): -1.5,
 }
 
+
 # EMA settings (used for indicators and daily bear regimes)
 EMA_FILTERS = {
     '1D': {'ema_fast': 9,  'ema_slow': 12},
     '4H': {'ema_fast': 9,  'ema_slow': 26},
 }
 
+
 STOP_LOSS_PCT = 2.0  # 2% below entry
 TRAIL_PCT   = 1.0    # 1% trail below target/highest
 POSITION_SIZE = 1    # shares
 
+
 STATE_DIR = "state_live"
 os.makedirs(STATE_DIR, exist_ok=True)
+
 
 ib = IB()
 ib.connect(IB_HOST, IB_PORT, IB_CLIENT_ID)
@@ -506,23 +515,6 @@ def check_entry_filled(symbol, state, emp_reb_daily):
     """
     For status=order_placed: consider entry filled if we now hold a long position in this symbol.
     """
-    planned_entry = state.get("planned_entry")
-    if planned_entry is not None and not has_live_entry_order(symbol, planned_entry, 'BUY'):
-        print(
-            Fore.RED
-            + f"{symbol} LIVE WARNING: state=order_placed but no live GTC BUY LMT @ {planned_entry:.2f} found. "
-              f"Resetting to flat."
-        )
-        state["status"] = "flat"
-        state["entry_order_id"] = None
-        state["planned_entry"] = None
-        state["stop_order_id"] = None
-        state["fill_price"] = None
-        state["stop_price"] = None
-        state["target_price"] = None
-        state["highest_since_target"] = None
-        return state
-
     pos_size, avg_cost = get_position_info(symbol)
     if pos_size <= 0:
         print(f"{symbol} LIVE: No position yet; entry order still working.")
@@ -734,9 +726,18 @@ for sym in symbols:
             last_daily_date
         )
         if entry_price is not None:
-            order_id = place_limit_entry(sym, entry_price)
-            # Verify that the order actually exists at IBKR
+            # If there is already a live GTC BUY LMT at this price, do NOT place another
             if has_live_entry_order(sym, entry_price, 'BUY'):
+                print(
+                    Fore.YELLOW
+                    + f"{sym} LIVE: Existing GTC BUY LMT @ {entry_price:.2f} detected; "
+                      f"not placing a new order."
+                )
+                state["status"] = "order_placed"
+                state["planned_entry"] = entry_price
+                state["entry_source"] = entry_source
+            else:
+                order_id = place_limit_entry(sym, entry_price)
                 state["status"] = "order_placed"
                 state["planned_entry"] = entry_price
                 state["entry_source"] = entry_source
@@ -748,12 +749,6 @@ for sym in symbols:
                 state["highest_since_target"] = None
                 msg = f"{sym}: New LIMIT BUY GTC placed @ {entry_price:.2f} (source={entry_source})"
                 all_messages.append(msg)
-            else:
-                print(
-                    Fore.RED
-                    + f"{sym} LIVE WARNING: Limit BUY @ {entry_price:.2f} not found in open orders; "
-                      f"not marking state as order_placed."
-                )
         else:
             print(f"\n{sym} DAILY: No entry decided (no recent dips / no bear swing-low).")
 
