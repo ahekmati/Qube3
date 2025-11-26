@@ -1,0 +1,10 @@
+{
+  "status": "order_placed",
+  "entry_source": "bear_regime_swing_low",
+  "planned_entry": 652.557274390671,
+  "fill_price": null,
+  "stop_price": null,
+  "target_price": null,
+  "highest_since_target": null,
+  "last_update_date": "2025-11-25T20:55:06.862753"
+}

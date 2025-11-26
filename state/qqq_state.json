@@ -1,0 +1,10 @@
+{
+  "status": "long_active",
+  "entry_source": "bear_regime_swing_low",
+  "planned_entry": 598.446967103206,
+  "fill_price": 598.446967103206,
+  "stop_price": 586.4780277611419,
+  "target_price": 613.2209291160673,
+  "highest_since_target": null,
+  "last_update_date": "2025-11-25T20:55:01.039558"
+}
